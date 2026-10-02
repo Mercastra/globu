@@ -1,0 +1,252 @@
+import path from "node:path";
+import { Option } from "commander";
+import { command, type Io, type JsonOption, print, readHookInput, runCli } from "../../cli-common/src/index.js";
+import {
+  doctor,
+  type Mode,
+  type ResolvedShard,
+  register,
+  removeContext,
+  renderIndex,
+  reprobe,
+  resolveActive,
+  resolveAll,
+  setContext,
+  sync,
+  syncClaudeDirectories,
+  unregister,
+  updateShard,
+  useContext
+} from "../../globu-core/src/index.js";
+import { isInside, VERSION } from "../../knowledge-base/src/index.js";
+
+const PROGRAM = {
+  name: "globu",
+  description: "Registry of knowledge shards for Claude Code.",
+  version: VERSION
+};
+
+const FOOTER = `
+Config lives in ~/.globu (override with GLOBU_HOME). GLOBU_CONTEXT overrides the active context for one process.`;
+
+function modeOption(flags: string, description: string): Option {
+  return new Option(flags, description).choices(["read", "write"]);
+}
+
+function location(shard: ResolvedShard): string {
+  if (shard.path === null) return "(not synced)";
+  return shard.present ? shard.path : `${shard.path} (missing)`;
+}
+
+function shardDetails(shard: ResolvedShard): string {
+  return [
+    `id:          ${shard.id}`,
+    `repo:        ${shard.source.repo ?? "(local only)"}`,
+    `format:      ${shard.format}`,
+    `mode:        ${shard.mode}${shard.access === "read" ? " (capped by manifest)" : ""}`,
+    `path:        ${location(shard)}`,
+    `owner:       ${shard.owner ?? "-"}`,
+    `description: ${shard.description || "-"}`,
+    `use when:    ${shard.useWhen || "-"}`,
+    "roots:",
+    ...shard.roots.map((root) => `  ${root.path}${root.entry === undefined ? "" : ` (entry: ${root.entry})`}`)
+  ].join("\n");
+}
+
+const UNREGISTER_SUFFIX = { none: "", kept: ", clone left in place", removed: ", clone removed" };
+
+export function globuMain(argv: string[], io: Io): number {
+  return runCli(
+    PROGRAM,
+    (program, exit) => {
+      program.addHelpText("after", FOOTER);
+
+      command(program, "register <locator>", "register a git repo as a shard, from a local path or a repo URL")
+        .option("--id <id>", "shard id, defaults to the repo name")
+        .addOption(modeOption("--mode <mode>", "whether this machine may edit the shard"))
+        .option("--path <dir>", "where to clone a repo URL, or where its clone already is")
+        .option("--description <text>", "what the shard contains")
+        .option("--use-when <text>", "when Claude should consult the shard")
+        .action(
+          (
+            locator: string,
+            options: JsonOption & { id?: string; mode?: Mode; path?: string; description?: string; useWhen?: string }
+          ) => {
+            const result = register({
+              locator,
+              cwd: io.cwd,
+              id: options.id,
+              mode: options.mode,
+              dest: options.path,
+              description: options.description,
+              useWhen: options.useWhen
+            });
+            const lines = [`${result.action} ${result.shard.id}`, shardDetails(result.shard)];
+            if (!result.portable) {
+              lines.push("note: this repo has no origin remote, so other machines cannot sync it");
+            }
+            if (!result.shard.description || !result.shard.useWhen) {
+              lines.push(
+                `note: add routing text with \`globu set ${result.shard.id} --description ... --use-when ...\``
+              );
+            }
+            print(io, options.json, result, lines.join("\n"));
+          }
+        );
+
+      command(program, "unregister <id>", "remove a shard from the manifest and the local state")
+        .option("--purge", "also delete a clone that globu owns")
+        .action((id: string, options: JsonOption & { purge?: boolean }) => {
+          const result = unregister(id, options.purge === true);
+          print(io, options.json, result, `unregistered ${result.id}${UNREGISTER_SUFFIX[result.clone]}`);
+        });
+
+      command(program, "list", "list the shards in the active context")
+        .option("--all", "list every shard, whatever the active context")
+        .action((options: JsonOption & { all?: boolean }) => {
+          const { context, shards } = options.all ? { ...resolveAll(), context: null } : resolveActive();
+          const lines = shards.map((shard) => `${shard.id}\t${shard.format}\t${shard.mode}\t${location(shard)}`);
+          if (lines.length === 0) lines.push("no shards registered");
+          if (context !== null) lines.unshift(`context: ${context}`);
+          print(io, options.json, { context, shards }, lines.join("\n"));
+        });
+
+      command(program, "show <id>", "show everything known about one shard").action(
+        (id: string, options: JsonOption) => {
+          const shard = resolveAll().shards.find((candidate) => candidate.id === id);
+          if (!shard) throw new Error(`no shard registered with id "${id}"`);
+          print(io, options.json, shard, shardDetails(shard));
+        }
+      );
+
+      command(program, "set <id>", "edit a shard's routing text, local mode or access cap")
+        .option("--description <text>", "what the shard contains")
+        .option("--use-when <text>", "when Claude should consult the shard")
+        .addOption(modeOption("--mode <mode>", "whether this machine may edit the shard"))
+        .addOption(modeOption("--access <access>", "the most any machine may do with the shard"))
+        .action(
+          (
+            id: string,
+            options: JsonOption & { description?: string; useWhen?: string; mode?: Mode; access?: Mode }
+          ) => {
+            const shard = updateShard(id, {
+              description: options.description,
+              useWhen: options.useWhen,
+              mode: options.mode,
+              access: options.access
+            });
+            print(io, options.json, shard, shardDetails(shard));
+          }
+        );
+
+      command(program, "reprobe <id>", "detect a shard's format and roots again").action(
+        (id: string, options: JsonOption) => {
+          const result = reprobe(id);
+          print(io, options.json, result, `${result.changed ? "updated" : "unchanged"}\n${shardDetails(result.shard)}`);
+        }
+      );
+
+      command(program, "sync", "clone missing shards and update the existing clones").action((options: JsonOption) => {
+        const report = sync();
+        const lines = report.map((entry) => [entry.action, entry.id, ...(entry.error ? [entry.error] : [])].join("\t"));
+        print(io, options.json, report, lines.join("\n") || "no shards registered");
+        if (report.some((entry) => entry.action === "error")) exit(1);
+      });
+
+      command(program, "use [context]", "make a context active for new sessions")
+        .option("--all", "clear the active context so every shard is active")
+        .action((context: string | undefined, options: JsonOption & { all?: boolean }) => {
+          const selected = options.all ? null : context;
+          if (selected === undefined) throw new Error("use needs a context name, or --all");
+          const name = useContext(selected);
+          print(io, options.json, { current: name }, `active context: ${name ?? "all shards"}`);
+        });
+
+      const context = program.command("context").description("define and inspect contexts");
+
+      command(context, "list", "show the contexts and which one is active").action((options: JsonOption) => {
+        const { manifest, state } = resolveAll();
+        const lines = Object.entries(manifest.contexts).map(
+          ([name, selection]) => `${name === state.current ? "*" : " "} ${name}\t${selection.join(" ")}`
+        );
+        const text = lines.join("\n") || "no contexts defined, every shard is active";
+        print(io, options.json, { current: state.current, contexts: manifest.contexts }, text);
+      });
+
+      command(
+        context,
+        "set <name> <patterns...>",
+        "define a context from shard ids or patterns, * is a wildcard"
+      ).action((name: string, patterns: string[], options: JsonOption) => {
+        print(io, options.json, setContext(name, patterns), `context ${name}: ${patterns.join(" ")}`);
+      });
+
+      command(context, "rm <name>", "delete a context").action((name: string, options: JsonOption) => {
+        print(io, options.json, removeContext(name), `removed context ${name}`);
+      });
+
+      command(program, "index", "print the text the session hook injects").action((options: JsonOption) => {
+        const { shards, context: active } = resolveActive();
+        const index = renderIndex(shards, active, io.cwd);
+        print(io, options.json, { context: active, index }, index);
+      });
+
+      command(program, "doctor", "report problems with the registered shards").action((options: JsonOption) => {
+        const findings = doctor();
+        const lines = findings.map((finding) => `${finding.level}\t${finding.id}\t${finding.message}`);
+        print(io, options.json, findings, lines.join("\n") || "no problems found");
+        if (findings.some((finding) => finding.level === "error")) exit(1);
+      });
+
+      const claude = program.command("claude").description("integrate with Claude Code settings");
+
+      command(claude, "sync", "add the active shards' paths to permissions.additionalDirectories")
+        .option("--remove", "remove the paths globu added")
+        .action((options: JsonOption & { remove?: boolean }) => {
+          const result = syncClaudeDirectories(options.remove === true);
+          const lines = [`${result.changed ? "updated" : "unchanged"} ${result.settingsPath}`, ...result.directories];
+          print(io, options.json, result, lines.join("\n"));
+        });
+
+      const hook = program.command("hook").description("hook entry points for Claude Code");
+
+      hook
+        .command("session-start")
+        .description("SessionStart entry point: print the shard index")
+        .action(() => {
+          const cwd = readHookInput(io)?.cwd ?? io.cwd;
+          try {
+            const { shards, context: active } = resolveActive();
+            const index = renderIndex(shards, active, cwd);
+            if (index) io.out(index);
+          } catch (err) {
+            io.out(`Globu could not load its shard index: ${(err as Error).message}`);
+          }
+        });
+
+      hook
+        .command("guard")
+        .description("PreToolUse entry point: exit 2 when the target file is in a read-only shard")
+        .action(() => {
+          const input = readHookInput(io);
+          const filePath = input?.tool_input.file_path ?? input?.tool_input.notebook_path;
+          if (filePath === undefined) return;
+          const file = path.resolve(input?.cwd ?? io.cwd, filePath);
+          let shards: ResolvedShard[];
+          try {
+            shards = resolveAll().shards;
+          } catch {
+            return;
+          }
+          const shard = shards.find((candidate) => candidate.path !== null && isInside(candidate.path, file));
+          if (!shard || shard.mode === "write") return;
+          io.err(
+            `globu: ${file} belongs to shard "${shard.id}", which is read-only on this machine. Do not edit it. If the user wants it editable, they can run \`globu set ${shard.id} --mode write\` (user-owned clones only).`
+          );
+          exit(2);
+        });
+    },
+    argv,
+    io
+  );
+}

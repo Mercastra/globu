@@ -1,0 +1,40 @@
+{
+  "name": "globu",
+  "version": "0.1.0",
+  "description": "globu",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=25"
+  },
+  "bin": {
+    "globu": "packages/globu-cli/dist/globu.mjs",
+    "knowledge-base": "packages/knowledge-base-cli/dist/knowledge-base.mjs"
+  },
+  "scripts": {
+    "build": "node scripts/build.ts",
+    "pin": "node scripts/pin-plugins.ts",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "verify": "npm run lint && npm run typecheck && npm run build && npm run test:coverage",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "yaml": "^2.6.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@types/node": "^25.9.1",
+    "@vitest/coverage-v8": "^4.1.8",
+    "esbuild": "^0.25.0",
+    "husky": "^9.1.7",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}

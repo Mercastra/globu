@@ -1,0 +1,8 @@
+{
+  "name": "knowledge-base",
+  "description": "Keep OKF knowledge bases (docs/ directories) inside one repo",
+  "version": "0.1.0",
+  "author": {
+    "name": "Mercastra"
+  }
+}

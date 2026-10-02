@@ -1,0 +1,45 @@
+---
+type: "Decision"
+title: "Design decisions"
+description: "Decisions taken for Globu and knowledge-base with their reasons, plus the questions still open."
+---
+
+# Design decisions
+
+## Decided
+
+- **Two products, one repo.** `knowledge-base` is complete for a single repo. Globu is an optional per-user layer above it. The dependency runs from Globu to OKF only.
+- **The standalone plugin is called `knowledge-base`.** It replaced the working name `okf-base`: the plugin manages knowledge bases, and OKF is the format they happen to use. The name is also the CLI name, the skill prefix (`/knowledge-base:setup`) and the prefix of the authoring guide markers in `index.md`.
+- **A base records the plugin version as `knowledge_base_version`.** `setup` stamps the plain version (`0.1.0`) under that key. It replaced `bootstrapped_by: okf-base@0.1.0`, which packed the plugin name and version into one string that every reader had to split.
+- **No stored list of bases.** Bases are found by scanning and owned by nearest ancestor. A stored list is a cache of what the filesystem already shows, and it has to be rewritten in every base whenever one is added.
+- **No cross-repo links inside a base.** A shared repo cannot name a private one without leaking that it exists, and different people need different sets. Which knowledge exists for a user is decided by that user's manifest.
+- **Manifest and state are separate files.** The manifest is portable and shareable. State holds paths, edit intent and the active context, which differ per machine.
+- **Read-only clones are tool-owned, editable clones are user-owned.** Globu may pull and re-clone what it owns. It only fetches what the user owns.
+- **One shard per repo, many roots.** A monorepo with a base per package should cost one entry in Claude's session index.
+- **Source and format are separate.** Git is the only source for now. Formats are drivers.
+- **The probe result is pinned.** Detection runs at registration. `doctor` reports drift.
+- **The CLI detects structure, Claude drafts meaning.** The CLI needs no API key and never prompts.
+- **Session index through a SessionStart hook.** No edits to the user's own instruction files, nothing to clean up on uninstall and no generated files that can go stale.
+- **`claude sync` is explicit.** Changing the user's Claude settings is never a side effect of another command.
+- **Skills leave edits uncommitted.** In a code repo the knowledge change normally ships with the code change, so committing is the user's call.
+- **The CLIs are published to npm and the plugins depend on them.** `@mercastra/globu` and `@mercastra/knowledge-base` are single bundled files with no runtime dependencies. Each plugin pins its CLI in a `package.json` and `package-lock.json`, and Claude Code installs it when it caches the plugin. This replaced committing the bundles in `plugins/*/dist`, which put compiled code in every diff.
+- **The plugin lockfiles are written by the release, not by npm.** `npm run pin` packs each CLI, takes the integrity hash of that tarball and writes the lockfile from it. The same tarball is then published. The pin needs no registry access and can be recreated from the same commit, because packing is reproducible.
+- **Plugins are installed from a `stable` branch.** A plugin can only pin a CLI version that is already published, so `main` may hold skills that are ahead of the pinned CLI. The marketplace entries point at `stable`, which the release moves after publishing and pinning. A separate marketplace repo would do the same job with a second repo to keep in sync.
+- **Packages are named after what they are.** `knowledge-base` is the OKF library and `knowledge-base-cli` its program. `globu-core` is the registry logic and `globu-cli` its program. `cli-common` holds what both programs share. An earlier single `cli` package held both programs, and the names `okf` and `core` did not say which product they belonged to.
+- **The CLIs are commander programs.** Commander generates the help text and validates arguments and options, including nested commands such as `context set`. It runs with `exitOverride` and its output goes through `Io`, so the rule below still holds. It is bundled into each CLI.
+- **TypeScript in strict mode on Node.** Types replace the comments and the defensive checks that plain JavaScript would need.
+- **Comments are a last resort, by convention.** A comment is allowed only when it is critical: the code would be misread or broken without it and no name, type or smaller function can carry the point. Reasoning goes in these docs. An earlier script failed the build on any comment. It was removed because a hard zero left no room for the rare comment that earns its place.
+- **100% test coverage as a gate.** Statements, branches, functions and lines. The preferred way to satisfy it is to delete branches that cannot happen.
+- **Config files are parsed with zod.** Manifest, state and hook input are validated once at the edge.
+- **CLI commands are pure functions of arguments and an `Io` object.** They return an exit code and never exit the process, so they run in-process under test.
+- **Shard ids are a single path segment.** Letters, digits, dots and dashes. An id becomes a directory name under `~/.globu/clones`, so it must not contain a separator.
+
+## Open
+
+- **The word "shard".** "Source" is the plainer alternative.
+- **Licence.**
+- **Importing manifests.** A user manifest should be able to include a team manifest by reference, with confirmation before new shards are cloned. Open points: one level or nested, and how ids are namespaced now that an id is a single segment.
+- **Write policy per shard.** Whether a shard can declare how changes are delivered (direct commit, branch, pull request) and whether Globu should act on it.
+- **Declaring access from the shard itself.** Today the cap lives in the manifest (`access: read`). A shared base could also declare it in its own `index.md`.
+- **CI for knowledge-base.** Shape of the GitHub Action and whether the content review ships with it.
+- **Further drivers.** Obsidian vaults are the first candidate and the test of the driver interface.

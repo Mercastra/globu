@@ -1,0 +1,29 @@
+{
+  "name": "globu",
+  "description": "Globu and the standalone OKF knowledge base plugin for Claude Code",
+  "owner": {
+    "name": "Mercastra"
+  },
+  "plugins": [
+    {
+      "name": "knowledge-base",
+      "source": {
+        "source": "git-subdir",
+        "url": "Mercastra/globu",
+        "path": "plugins/knowledge-base",
+        "ref": "stable"
+      },
+      "description": "Keep OKF knowledge bases (docs/ directories) inside one repo: bootstrap them, validate edits and record what a session learned"
+    },
+    {
+      "name": "globu",
+      "source": {
+        "source": "git-subdir",
+        "url": "Mercastra/globu",
+        "path": "plugins/globu",
+        "ref": "stable"
+      },
+      "description": "Per-user registry of knowledge shards: tells Claude which knowledge exists on this machine, when to consult it and where it may write"
+    }
+  ]
+}

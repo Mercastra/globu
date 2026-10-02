@@ -1,0 +1,38 @@
+import fs from "node:fs";
+import path from "node:path";
+import { build } from "esbuild";
+import { readJson, root, targets, writeJson } from "./targets.ts";
+
+const { version } = readJson<{ version: string }>(path.join(root, "package.json"));
+
+const banner = [
+  "#!/usr/bin/env node",
+  'import { createRequire as __createRequire } from "node:module";',
+  "const require = __createRequire(import.meta.url);"
+].join("\n");
+
+for (const target of targets) {
+  const outfile = path.join(target.packageDir, target.bundle);
+  await build({
+    entryPoints: [path.join(target.packageDir, target.entry)],
+    outfile,
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    target: "node22",
+    banner: { js: banner },
+    logLevel: "warning"
+  });
+  fs.chmodSync(outfile, 0o755);
+
+  const manifestPath = path.join(target.packageDir, "package.json");
+  const manifest = readJson<{ name: string; version: string }>(manifestPath);
+  if (manifest.version !== version) writeJson(manifestPath, { ...manifest, version });
+
+  const link = path.join(target.pluginDir, "node_modules", manifest.name);
+  fs.rmSync(link, { recursive: true, force: true });
+  fs.mkdirSync(path.dirname(link), { recursive: true });
+  fs.symlinkSync(path.relative(path.dirname(link), target.packageDir), link);
+
+  console.log(`built ${path.relative(root, outfile)}`);
+}

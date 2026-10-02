@@ -1,0 +1,23 @@
+{
+  "name": "@mercastra/knowledge-base",
+  "version": "0.1.0",
+  "description": "Keep OKF knowledge bases (docs/ directories) inside one repo",
+  "type": "module",
+  "bin": {
+    "knowledge-base": "dist/knowledge-base.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mercastra/globu.git",
+    "directory": "packages/knowledge-base-cli"
+  }
+}

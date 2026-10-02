@@ -1,0 +1,7 @@
+{
+  "name": "globu-plugin",
+  "private": true,
+  "dependencies": {
+    "@mercastra/globu": "0.1.0"
+  }
+}

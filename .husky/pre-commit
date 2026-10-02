@@ -1,0 +1,5 @@
+npm run verify
+git diff --exit-code --stat -- packages/globu-cli/package.json packages/knowledge-base-cli/package.json || {
+  echo "The build updated the package versions. Stage packages/*/package.json and commit again."
+  exit 1
+}

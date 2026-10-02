@@ -1,0 +1,23 @@
+{
+  "name": "@mercastra/globu",
+  "version": "0.1.0",
+  "description": "Registry of knowledge shards for Claude Code",
+  "type": "module",
+  "bin": {
+    "globu": "dist/globu.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mercastra/globu.git",
+    "directory": "packages/globu-cli"
+  }
+}

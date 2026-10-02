@@ -1,0 +1,8 @@
+{
+  "name": "globu",
+  "description": "Per-user registry of knowledge shards for Claude Code",
+  "version": "0.1.0",
+  "author": {
+    "name": "Mercastra"
+  }
+}
