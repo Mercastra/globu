@@ -87,7 +87,8 @@ The workflow runs `npm run verify`, then:
 
 1. `npm run pin` packs each CLI into `release/`, writes `plugins/*/package.json` and `package-lock.json` with the integrity hash of that tarball and sets `version` in each `plugin.json`.
 2. `npm publish` uploads exactly those tarballs as public packages, which `publishConfig.access` in each `package.json` sets. The path needs its leading `./`, because npm reads a bare `release/<file>` as a GitHub `owner/repo` shorthand. It authenticates through npm trusted publishing, so the workflow holds no token.
-3. The pin is committed to `main` and `stable` is moved to that commit. Installed plugins update from `stable` because the `plugin.json` version changed.
+3. The workflow waits until both tarballs can be downloaded. npm accepts a publish before the files are served, and that can take a few minutes.
+4. The pin is committed to `main` and `stable` is moved to that commit. Installed plugins update from `stable` because the `plugin.json` version changed.
 
 A package has to exist on npm before a trusted publisher can be configured for it, so the first release of each package is done by hand with the same steps:
 

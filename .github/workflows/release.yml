@@ -42,6 +42,21 @@ jobs:
             npm publish "$tarball"
           done
 
+      - name: Wait until the published CLIs can be downloaded
+        run: |
+          for lockfile in plugins/*/package-lock.json; do
+            url=$(node -p "Object.values(require('./$lockfile').packages).find((entry) => entry.resolved).resolved")
+            for attempt in $(seq 1 60); do
+              if curl --silent --fail --output /dev/null "$url"; then
+                echo "$url is available"
+                continue 2
+              fi
+              sleep 10
+            done
+            echo "$url is still not available after 10 minutes"
+            exit 1
+          done
+
       - name: Commit the pins and move the stable branch
         env:
           HUSKY: "0"
