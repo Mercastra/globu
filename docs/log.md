@@ -1,6 +1,7 @@
 # Knowledge base update log
 
 ## 2026-10-04
+* Chose the MIT licence and recorded it in [decisions](./decisions.md). Development and CI moved to Node 26.
 * The release workflow now waits until the published tarballs can be downloaded before it commits the pin and moves stable. Updated [development](./development.md).
 * Removed the roadmap doc and the status note in the README. Older log entries keep the word but no longer link to it.
 * Raised the runtime floor of the bundled CLIs from Node 20 to Node 22 and moved to commander 15. Updated [development](./development.md).

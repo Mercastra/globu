@@ -32,12 +32,12 @@ description: "Decisions taken for Globu and knowledge-base with their reasons, p
 - **100% test coverage as a gate.** Statements, branches, functions and lines. The preferred way to satisfy it is to delete branches that cannot happen.
 - **Config files are parsed with zod.** Manifest, state and hook input are validated once at the edge.
 - **CLI commands are pure functions of arguments and an `Io` object.** They return an exit code and never exit the process, so they run in-process under test.
+- **The licence is MIT.** One licence covers the repo, both npm packages and both plugins, with Mercastra as the copyright holder. The build copies the root `LICENSE` into each package so the published tarballs carry it.
 - **Shard ids are a single path segment.** Letters, digits, dots and dashes. An id becomes a directory name under `~/.globu/clones`, so it must not contain a separator.
 
 ## Open
 
 - **The word "shard".** "Source" is the plainer alternative.
-- **Licence.**
 - **Importing manifests.** A user manifest should be able to include a team manifest by reference, with confirmation before new shards are cloned. Open points: one level or nested, and how ids are namespaced now that an id is a single segment.
 - **Write policy per shard.** Whether a shard can declare how changes are delivered (direct commit, branch, pull request) and whether Globu should act on it.
 - **Declaring access from the shard itself.** Today the cap lives in the manifest (`access: read`). A shared base could also declare it in its own `index.md`.

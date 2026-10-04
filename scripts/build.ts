@@ -29,6 +29,8 @@ for (const target of targets) {
   const manifest = readJson<{ name: string; version: string }>(manifestPath);
   if (manifest.version !== version) writeJson(manifestPath, { ...manifest, version });
 
+  fs.copyFileSync(path.join(root, "LICENSE"), path.join(target.packageDir, "LICENSE"));
+
   const link = path.join(target.pluginDir, "node_modules", manifest.name);
   fs.rmSync(link, { recursive: true, force: true });
   fs.mkdirSync(path.dirname(link), { recursive: true });

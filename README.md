@@ -7,6 +7,22 @@ This repo ships two Claude Code plugins that install separately:
 - **[knowledge-base](plugins/knowledge-base/README.md)** keeps [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) knowledge bases (`docs/` directories) inside one repo. It works on its own.
 - **[globu](plugins/globu/README.md)** is a per-user registry of knowledge shards. It tells Claude which knowledge exists on this machine, when to consult it and where it may write.
 
+## Install
+
+```sh
+claude plugin marketplace add Mercastra/globu
+claude plugin install knowledge-base@globu
+claude plugin install globu@globu
+```
+
+Each plugin runs its CLI from an npm package that Claude Code installs with the plugin, so `node` (22 or newer) and `npm` must be on the `PATH`.
+
+The CLIs also work on their own in a terminal:
+
+```sh
+npm install -g @mercastra/globu @mercastra/knowledge-base
+```
+
 ## Try it locally
 
 ```sh
@@ -33,6 +49,10 @@ npm run verify
 `npm run verify` runs lint, typecheck, the build and the tests with a 100% coverage gate. The pre-commit hook and CI run the same command. See [docs/development.md](docs/development.md).
 
 `npm run build` bundles each CLI into its package's `dist/` directory and links it into the matching plugin. The bundles are not kept in git: the CLIs are published to npm as `@mercastra/globu` and `@mercastra/knowledge-base`, and each plugin depends on its CLI at a pinned version. See [docs/development.md](docs/development.md#releasing).
+
+## Licence
+
+[MIT](LICENSE).
 
 ## Documentation
 

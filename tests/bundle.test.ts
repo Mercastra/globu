@@ -58,6 +58,8 @@ describe("published packages", () => {
     const manifest = JSON.parse(read(root, packageDir, "package.json"));
     expect(manifest.version).toBe(JSON.parse(read(root, "package.json")).version);
     expect(manifest.files).toEqual(["dist"]);
+    expect(manifest.license).toBe("MIT");
+    expect(read(root, packageDir, "LICENSE")).toBe(read(root, "LICENSE"));
     for (const bin of Object.values<string>(manifest.bin)) {
       expect(fs.existsSync(path.join(root, packageDir, bin))).toBe(true);
     }

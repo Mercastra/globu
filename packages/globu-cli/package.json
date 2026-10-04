@@ -2,6 +2,8 @@
   "name": "@mercastra/globu",
   "version": "0.1.1",
   "description": "Registry of knowledge shards for Claude Code",
+  "author": "Mercastra",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "globu": "dist/globu.mjs"

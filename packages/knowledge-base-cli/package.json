@@ -2,6 +2,8 @@
   "name": "@mercastra/knowledge-base",
   "version": "0.1.1",
   "description": "Keep OKF knowledge bases (docs/ directories) inside one repo",
+  "author": "Mercastra",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "knowledge-base": "dist/knowledge-base.mjs"
