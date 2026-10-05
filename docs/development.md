@@ -18,6 +18,8 @@ npm run verify
 
 `npm install` also installs the Husky pre-commit hook.
 
+A linked git worktree, such as the ones Claude Code sessions run in under `.claude/worktrees/`, needs its own install. Run `npm ci` there before the first build. A build that stops with `Could not resolve "commander"` means the worktree's `node_modules` is missing or incomplete. The shell that commits needs the Node version from `.nvmrc` as well, because the pre-commit hook runs `npm run verify`.
+
 ## Commands
 
 | Command | What it does |
@@ -50,10 +52,10 @@ A comment is allowed only when it is critical, meaning a reader would misread or
 ## Tests
 
 - Vitest. Unit tests sit next to the code as `*.test.ts`.
-- `packages/testing` holds the helpers: temp directories, throwaway git repos and a captured `Io`.
+- `packages/testing` holds the helpers: temp directories, throwaway git repos, linked worktrees (also of a bare repo) and a captured `Io`.
 - `tests/bundle.test.ts` runs the built bundles as real executables. It checks the thing users install: the shebang, the bundled dependencies and reading hook input from stdin. It also runs every command in each plugin's `hooks.json` with `CLAUDE_PLUGIN_ROOT` set, so a hook path that does not match the package name or its `bin` fails the build.
 - `vitest.setup.ts` points `GLOBU_HOME` and `CLAUDE_CONFIG_DIR` at a fresh temp directory before every test, so no test can read or write the developer's real configuration. It also removes every `GIT_*` variable from the environment. A git hook in a linked worktree exports `GIT_DIR`, and with it set the `git init` in a test would act on the real repository instead of the temp one. `CLAUDE_PROJECT_DIR` is cleared before every test as well, because the guard reads it to find the session's home repo and the tests may themselves run inside a Claude Code session.
-- Git behaviour is tested against real repositories created in temp directories. Remote repos are `file://` URLs.
+- Git behaviour is tested against real repositories created in temp directories. Remote repos are `file://` URLs. A test that expects a shard to be matched to a directory needs a real repo for both, because matching asks git. A made-up path only works where no match is expected.
 
 ## Design choices that keep the code testable
 
@@ -80,8 +82,11 @@ The root `package.json` holds the version. The build copies it into `packages/*-
 
 A release publishes both CLIs and then pins the plugins to them:
 
-1. Bump `version` in the root `package.json`, run `npm run build` and merge that to `main`.
-2. Run the `Release` workflow (`.github/workflows/release.yml`) from the Actions tab.
+1. Bump the version with `npm version <version> --no-git-tag-version`, run `npm run build` and merge that to `main`. The command also updates the root `package-lock.json`, and the build updates the two CLI `package.json` files, so the bump commit touches four files.
+2. Run the `Release` workflow (`.github/workflows/release.yml`) from the Actions tab, or with `gh workflow run release.yml --ref main` and then `gh run watch <run-id> --exit-status`. A run takes about six minutes, most of it waiting for the tarballs.
+3. Pull `main` afterwards. The workflow adds the pin commit, so a local `main` is one commit behind.
+
+Every release needs a new version. npm never accepts a version twice, so a run on an already published version fails at the publish step. `npm view @mercastra/globu versions` shows what is taken.
 
 The workflow runs `npm run verify`, then:
 

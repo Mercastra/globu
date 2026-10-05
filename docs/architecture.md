@@ -90,6 +90,10 @@ A shard is a repo, not a directory. A session often runs in a linked git worktre
 
 Two checkouts belong to the same repo when they share a git common directory. The origin URL is not used: a second clone of the same repo is a different working copy, and a read-only managed clone must not block edits in the user's own clone.
 
+For a main checkout the common directory is its own `.git` directory, so a shard's side of the comparison needs no git process. Only a shard whose `.git` is a file, such as a worktree of a bare repo, costs a `git rev-parse`. The session's side is one `git rev-parse` per directory looked up.
+
+The roots stay the ones pinned from the main checkout. A base added or removed on a worktree's branch does not show in that session's index until the change reaches the main checkout and `globu reprobe` runs.
+
 The index, `list` and both hooks use the session view. `show`, `doctor`, `sync` and `claude sync` work on the registry and always mean the main checkout.
 
 ## Probe and drivers
@@ -147,6 +151,8 @@ The directory a command runs in follows `cd` and `pushd` within the command. Var
 | `write` | nothing | nothing |
 
 What it cannot see: paths built from variables set elsewhere, from command substitution or from a pipe into `xargs`, and writes made inside a script the command runs. A possible write therefore prompts instead of blocking, and a miss is possible. The guard lowers the chance of an unnoticed change to another repo. It is not a sandbox.
+
+The Claude Code behaviours all of this depends on are listed in the [hook contract](./claude-code-hooks.md).
 
 ## Writing knowledge back
 

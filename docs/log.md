@@ -1,6 +1,10 @@
 # Knowledge base update log
 
 ## 2026-10-05
+* Added [Claude Code hook contract](./claude-code-hooks.md): the hook behaviours the session and guard hooks rely on, their sources and the two that are untested.
+* Released 0.2.0. Added what the release taught to [development](./development.md): bump with `npm version`, a published version cannot be released again, how to trigger and watch the workflow from the terminal and the pin commit to pull afterwards. Also noted that a git worktree needs its own install.
+* Recorded in [decisions](./decisions.md) that `setup` does not migrate what earlier tools wrote, and added the lessons for a future CI workflow to its open question.
+* Noted in [architecture](./architecture.md) when shard matching needs a git process and that roots stay pinned from the main checkout in a worktree session.
 * `setup` now inserts the authoring guide after the whole intro paragraph and never takes a heading, list, table or comment for the intro. It used to split a hard-wrapped intro after its first line. Noted the placement rule in [knowledge-base plugin](./knowledge-base-plugin.md).
 * The guard now also runs before `Bash` and reads the command: redirects and file commands are certain writes, other commands possible ones, and commands that only read pass. Added the rules and their limits to [architecture](./architecture.md), updated [globu CLI](./globu-cli.md) and recorded the reasons in [decisions](./decisions.md).
 * Shards are now matched by git repo, not by path prefix. A session in any linked worktree gets that worktree in the index, in `list` and in the guard, and `register` always records the main checkout. Added the session view to [architecture](./architecture.md), updated [globu CLI](./globu-cli.md) and recorded the reasons in [decisions](./decisions.md).

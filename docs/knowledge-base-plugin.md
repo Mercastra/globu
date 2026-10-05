@@ -16,7 +16,7 @@ A Claude Code plugin for keeping [OKF](https://github.com/GoogleCloudPlatform/kn
 - **Ownership is by nearest ancestor.** Knowledge about a piece of code belongs in the closest `docs/` base walking up from that code. Everything else falls to the base at the repo root. The walk stops at the root of the repo or worktree that holds the file, so a file in a worktree is never owned by a base of the main checkout around it.
 - The plugin never looks outside the current repo. Knowledge that spans repos is Globu's job.
 
-Every base carries its own authoring guide inside `index.md`, between `knowledge-base:authoring-guide` markers. An agent or person without the plugin can read it and edit the base correctly. When an `index.md` has no markers yet, `setup` inserts the guide after the title and its intro. The intro is the whole first paragraph, and only when that paragraph is prose: a heading, a list, a table or a comment straight after the title is left below the guide.
+Every base carries its own authoring guide inside `index.md`, between `knowledge-base:authoring-guide` markers. An agent or person without the plugin can read it and edit the base correctly. When an `index.md` has no markers yet, `setup` inserts the guide after the title and its intro. The intro is the whole first paragraph, and only when that paragraph is prose: a heading, a list, a table or a comment straight after the title is left below the guide. One case is not handled: an intro on the very last line of a file with no final newline is not seen as an intro, and the guide goes above it.
 
 ## CLI
 

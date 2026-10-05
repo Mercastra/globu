@@ -41,6 +41,7 @@ This is a plain [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/b
 * [Architecture](./architecture.md) - the two products, the registry, probe, drivers and Claude Code integration
 * [knowledge-base plugin](./knowledge-base-plugin.md) - base discovery, ownership rule, commands, hook and skills
 * [globu CLI](./globu-cli.md) - command reference
+* [Claude Code hook contract](./claude-code-hooks.md) - the hook behaviours the session and guard hooks rely on, and which are untested
 * [Development](./development.md) - tooling, quality gates, tests, CI and releasing
 * [Design decisions](./decisions.md) - what was decided and why, plus open questions
 * [Update log](./log.md) - chronological history of changes to this base
