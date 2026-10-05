@@ -1,6 +1,6 @@
 {
   "name": "@mercastra/knowledge-base",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Keep OKF knowledge bases (docs/ directories) inside one repo",
   "author": "Mercastra",
   "license": "MIT",
