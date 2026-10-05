@@ -2,12 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { isInside } from "../../knowledge-base/src/index.js";
 import { activeContextName, selectShards } from "./context.js";
-import { clone, fetch, isRepo, originUrl, pull, repoRoot } from "./git.js";
+import { clone, fetch, isRepo, mainCheckout, originUrl, pull } from "./git.js";
 import { looksLikeRepoUrl, repoBasename, sameRepo } from "./giturl.js";
 import { loadManifest, type Manifest, type Shard, saveManifest } from "./manifest.js";
 import { clonesDir } from "./paths.js";
 import { probeDir } from "./probe.js";
-import { type LocalShard, loadState, type Mode, type Owner, type State, saveState } from "./state.js";
+import { type Access, type LocalShard, loadState, type Mode, type Owner, type State, saveState } from "./state.js";
 
 export type ResolvedShard = Shard & { path: string | null; owner: Owner | null; mode: Mode; present: boolean };
 export type Registry = { manifest: Manifest; state: State; shards: ResolvedShard[] };
@@ -24,7 +24,7 @@ export type RegisterOptions = {
 };
 export type RegisterResult = { action: "registered" | "attached"; shard: ResolvedShard; portable: boolean };
 export type UnregisterResult = { id: string; path: string | null; clone: "none" | "kept" | "removed" };
-export type ShardUpdate = { description?: string; useWhen?: string; mode?: Mode; access?: Mode };
+export type ShardUpdate = { description?: string; useWhen?: string; mode?: Mode; access?: Access };
 export type SyncEntry = { id: string; action: "cloned" | "pulled" | "fetched" | "error"; error?: string };
 
 type Placement = LocalShard & { repo: string | null };
@@ -71,13 +71,13 @@ function placeLocal(locator: string, cwd: string, mode: Mode | undefined): Place
   if (!isRepo(target)) {
     throw new Error(`${target} is not inside a git repository (git repos are the only source type so far)`);
   }
-  const localPath = repoRoot(target);
+  const localPath = mainCheckout(target);
   return { repo: originUrl(localPath), path: localPath, owner: "user", mode: mode ?? "write" };
 }
 
 function placeRemote(repo: string, id: string, options: RegisterOptions): Placement {
   if (options.dest === undefined) {
-    if (options.mode === "write") {
+    if (options.mode !== undefined && options.mode !== "read") {
       throw new Error("an editable shard needs --path <dir> so its clone lives where you choose");
     }
     const target = cloneDirFor(id);
@@ -91,7 +91,7 @@ function placeRemote(repo: string, id: string, options: RegisterOptions): Placem
   } else if (!isRepo(target) || !sameRepo(originUrl(target), repo)) {
     throw new Error(`${target} already exists and is not a clone of ${repo}`);
   }
-  return { repo, path: repoRoot(target), owner: "user", mode: options.mode ?? "write" };
+  return { repo, path: mainCheckout(target), owner: "user", mode: options.mode ?? "write" };
 }
 
 function assertSameId(known: Shard | undefined, id: string | undefined): void {
@@ -183,7 +183,7 @@ export function updateShard(id: string, update: ShardUpdate): ResolvedShard {
     if (!Object.hasOwn(state.shards, id)) {
       throw new Error(`shard "${id}" has no local clone yet, run \`globu sync\` first`);
     }
-    if (update.mode === "write" && state.shards[id].owner === "globu") {
+    if (update.mode !== "read" && state.shards[id].owner === "globu") {
       throw new Error(
         `shard "${id}" lives in a globu-managed clone. Register its URL again with --path <dir> to edit it`
       );

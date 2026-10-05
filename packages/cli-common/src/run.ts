@@ -13,7 +13,9 @@ export type JsonOption = { json?: boolean };
 
 const HookInputSchema = z.object({
   cwd: z.string().optional(),
-  tool_input: z.object({ file_path: z.string().optional(), notebook_path: z.string().optional() }).default({})
+  tool_input: z
+    .object({ file_path: z.string().optional(), notebook_path: z.string().optional(), command: z.string().optional() })
+    .default({})
 });
 export type HookInput = z.infer<typeof HookInputSchema>;
 

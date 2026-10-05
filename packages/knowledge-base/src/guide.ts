@@ -3,6 +3,9 @@ import { DOCS_DIRNAME, INDEX_FILENAME, LOG_FILENAME, OKF_SPEC_URL, PLUGIN_NAME }
 export const AUTHORING_GUIDE_START = `<!-- ${PLUGIN_NAME}:authoring-guide:start -->`;
 export const AUTHORING_GUIDE_END = `<!-- ${PLUGIN_NAME}:authoring-guide:end -->`;
 
+const NOT_PROSE = "(?!#|[*+-]\\s|\\d+[.)]\\s|[<|>`])";
+const TITLE_AND_INTRO_RE = new RegExp(`^#[^\\n]*\\n(?:\\n${NOT_PROSE}(?:[^\\n]*\\S[^\\n]*\\n)+)?`);
+
 export function authoringGuideBlock(): string {
   return [
     AUTHORING_GUIDE_START,
@@ -44,7 +47,7 @@ export function upsertAuthoringGuide(body: string): string {
     return trimmed.slice(0, startIdx) + block + trimmed.slice(endIdx + AUTHORING_GUIDE_END.length);
   }
 
-  const headingMatch = /^#[^\n]*\n(?:\n[^\n]+\n)?/.exec(trimmed);
+  const headingMatch = TITLE_AND_INTRO_RE.exec(trimmed);
   if (!headingMatch) return `${block}\n\n${trimmed}`;
   const idx = headingMatch[0].length;
   return `${trimmed.slice(0, idx)}\n${block}\n\n${trimmed.slice(idx).replace(/^\n+/, "")}`;

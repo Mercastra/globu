@@ -40,6 +40,17 @@ export function commitAll(root: string, message = "update"): void {
   git(root, "commit", "-q", "-m", message);
 }
 
+export function addWorktree(repo: string, dir: string, branch: string): string {
+  git(repo, "worktree", "add", "-q", "-b", branch, dir);
+  return fs.realpathSync(dir);
+}
+
+export function bareWorktree(repo: string, bareDir: string, dir: string): string {
+  git(repo, "clone", "-q", "--bare", repo, bareDir);
+  git(bareDir, "worktree", "add", "-q", "-b", "work", dir);
+  return fs.realpathSync(dir);
+}
+
 export function baseIndex(name: string, description = ""): string {
   const descriptionLine = description ? `description: ${description}\n` : "";
   return `---\nokf_version: "0.2"\nname: ${name}\n${descriptionLine}---\n\n# ${name}\n`;

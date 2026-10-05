@@ -40,6 +40,11 @@ describe("bundled CLIs", () => {
     const blocked = runBundle(GLOBU, ["hook", "guard"], { tool_input: { file_path: path.join(repo, "docs/x.md") } });
     expect(blocked.status).toBe(2);
     expect(blocked.stderr).toContain("read-only");
+
+    expect(runBundle(GLOBU, ["set", "notes", "--mode", "ask"]).status).toBe(0);
+    const asked = runBundle(GLOBU, ["hook", "guard"], { tool_input: { file_path: path.join(repo, "docs/x.md") } });
+    expect(asked.status).toBe(0);
+    expect(JSON.parse(asked.stdout).hookSpecificOutput.permissionDecision).toBe("ask");
     expect(runBundle(GLOBU, ["nope"]).status).toBe(1);
   });
 

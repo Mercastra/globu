@@ -52,7 +52,7 @@ A comment is allowed only when it is critical, meaning a reader would misread or
 - Vitest. Unit tests sit next to the code as `*.test.ts`.
 - `packages/testing` holds the helpers: temp directories, throwaway git repos and a captured `Io`.
 - `tests/bundle.test.ts` runs the built bundles as real executables. It checks the thing users install: the shebang, the bundled dependencies and reading hook input from stdin. It also runs every command in each plugin's `hooks.json` with `CLAUDE_PLUGIN_ROOT` set, so a hook path that does not match the package name or its `bin` fails the build.
-- `vitest.setup.ts` points `GLOBU_HOME` and `CLAUDE_CONFIG_DIR` at a fresh temp directory before every test, so no test can read or write the developer's real configuration. It also removes every `GIT_*` variable from the environment. A git hook in a linked worktree exports `GIT_DIR`, and with it set the `git init` in a test would act on the real repository instead of the temp one.
+- `vitest.setup.ts` points `GLOBU_HOME` and `CLAUDE_CONFIG_DIR` at a fresh temp directory before every test, so no test can read or write the developer's real configuration. It also removes every `GIT_*` variable from the environment. A git hook in a linked worktree exports `GIT_DIR`, and with it set the `git init` in a test would act on the real repository instead of the temp one. `CLAUDE_PROJECT_DIR` is cleared before every test as well, because the guard reads it to find the session's home repo and the tests may themselves run inside a Claude Code session.
 - Git behaviour is tested against real repositories created in temp directories. Remote repos are `file://` URLs.
 
 ## Design choices that keep the code testable

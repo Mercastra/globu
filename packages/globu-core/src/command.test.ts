@@ -1,0 +1,105 @@
+import os from "node:os";
+import { describe, expect, it } from "vitest";
+import { commandTargets } from "./command.js";
+
+const CWD = "/work/home";
+
+function braced(name: string): string {
+  return ["$", "{", name, "}"].join("");
+}
+
+function certain(source: string): string[] {
+  const targets = commandTargets(source, CWD);
+  expect(targets.every((target) => target.certain)).toBe(true);
+  return targets.map((target) => target.path);
+}
+
+function possible(source: string): string[] {
+  const targets = commandTargets(source, CWD);
+  expect(targets.some((target) => target.certain)).toBe(false);
+  return targets.map((target) => target.path);
+}
+
+describe("commandTargets", () => {
+  it("finds nothing in commands that only read", () => {
+    for (const source of [
+      "ls ../other",
+      "cat ../other/a.md | head -5",
+      "grep -r foo ../other && wc -l ../other/a.md",
+      "sed -n 1p ../other/a.md",
+      "find ../other -name '*.md'",
+      "sort ../other/a.txt",
+      "FOO=1",
+      "if test -f ../other/a; then echo yes; fi",
+      "echo hi > /dev/null"
+    ]) {
+      expect(commandTargets(source, CWD).filter((target) => target.path.startsWith("/work/other"))).toEqual([]);
+    }
+  });
+
+  it("treats redirects and file commands as certain writes", () => {
+    expect(certain("rm -rf ../other/src a.txt")).toEqual(["/work/other/src", "/work/home/a.txt"]);
+    expect(certain("cp ../other/a.md ./b.md")).toEqual(["/work/home/b.md"]);
+    expect(certain("echo x > ../other/f")).toEqual(["/work/other/f"]);
+    expect(certain("if test -f x; then /bin/rm ../other/y; fi")).toEqual(["/work/other/y"]);
+    expect(certain("FOO=1 BAR=2 touch ../other/z")).toEqual(["/work/other/z"]);
+    expect(certain(`rm ~/x $HOME/y ${braced("HOME")}/z "$DIR/q" "" --target=../other/k`)).toEqual([
+      `${os.homedir()}/x`,
+      `${os.homedir()}/y`,
+      `${os.homedir()}/z`,
+      "/work/other/k"
+    ]);
+    expect(certain('echo x > "$OUT"')).toEqual([]);
+  });
+
+  it("expands variables assigned in the same command", () => {
+    expect(certain(`D=../other; rm $D/a ${braced("D")}/b`)).toEqual(["/work/other/a", "/work/other/b"]);
+    expect(certain("export OUT=../other/out && W=$OUT/deep; echo x > $W/f")).toEqual(["/work/other/out/deep/f"]);
+    expect(certain('D=../other bash -c "touch $D/f"')).toEqual(["/work/other/f"]);
+    expect(possible("export PATH")).toEqual(["/work/home"]);
+  });
+
+  it("follows cd, pushd and nested shells", () => {
+    expect(certain("cd ../other && touch f")).toEqual(["/work/other/f"]);
+    expect(certain("pushd ../other; mkdir -p a/b")).toEqual(["/work/other/a/b"]);
+    expect(certain('cd "$X" && rm a; cd; rm b')).toEqual(["/work/home/a", "/work/home/b"]);
+    expect(certain('bash -c "cd ../other && touch f"')).toEqual(["/work/other/f"]);
+    expect(certain("sh -c")).toEqual([]);
+  });
+
+  it("treats other commands as possible writes to their arguments and directory", () => {
+    expect(possible("npm test")).toEqual(["/work/home/test", "/work/home"]);
+    expect(possible("cd ../other && npm test")).toEqual(["/work/other/test", "/work/other"]);
+    expect(possible("bash script.sh")).toEqual(["/work/home/script.sh", "/work/home"]);
+    expect(possible("sed -i s/a/b/ ../other/f")).toEqual(["/work/home/s/a/b", "/work/other/f", "/work/home"]);
+    expect(possible("find ../other -delete")).toEqual(["/work/other", "/work/home"]);
+    expect(possible("sort -o out.txt in.txt")).toEqual(["/work/home/out.txt", "/work/home/in.txt", "/work/home"]);
+    expect(possible("dd of=../other/img")).toEqual(["/work/other/img", "/work/home"]);
+  });
+
+  it("separates git commands that read from those that change the repo", () => {
+    for (const source of [
+      "git status",
+      "git -C ../other log --oneline",
+      "git -c core.pager=cat --no-pager diff",
+      "git branch --show-current",
+      "git branch -a -vv",
+      "git remote -v",
+      "git remote get-url origin",
+      "git stash list",
+      "git tag -l 'v*'",
+      "git config --get user.name",
+      "git worktree list",
+      "git --version",
+      "git -C"
+    ]) {
+      expect(commandTargets(source, CWD)).toEqual([]);
+    }
+    expect(possible("git commit -m x")).toEqual(["/work/home"]);
+    expect(possible("git -C ../other pull")).toEqual(["/work/other"]);
+    expect(possible('git -C "$DIR" reset --hard')).toEqual(["/work/home"]);
+    expect(possible("git branch -D old")).toEqual(["/work/home"]);
+    expect(possible("git tag v1")).toEqual(["/work/home"]);
+    expect(possible("git worktree add ../x")).toEqual(["/work/home"]);
+  });
+});

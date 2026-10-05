@@ -21,6 +21,7 @@ A shard is one registered unit of knowledge: a git repo plus what Globu knows ab
    | URL, read only | none (cloned under `~/.globu/clones`, kept up to date by `globu sync`) |
    | URL, editable | `--path <dir>` |
    | Local directory the user does not want Claude to edit | `--mode read` |
+   | Code repo that sessions in other repos may edit only after asking | `--mode ask` |
 
 3. **Register it.**
    ```bash
@@ -45,4 +46,5 @@ A shard is one registered unit of knowledge: a git repo plus what Globu knows ab
 
 - If the command says the repo is already registered, use `globu show <id>` and `globu set` instead.
 - A repo without an `origin` remote can be registered but will not sync to other machines. Tell the user.
+- Registering from a git worktree records the repo's main checkout. Sessions in any worktree of that repo are still pointed at their own worktree.
 - Never register a repo the user did not ask for.

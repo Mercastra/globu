@@ -1,4 +1,6 @@
+import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { addWorktree, initRepo, tempDir } from "../../testing/index.js";
 import type { ResolvedShard } from "./registry.js";
 import { renderIndex } from "./render.js";
 
@@ -24,24 +26,50 @@ describe("renderIndex", () => {
   });
 
   it("lists routing text, entries and format conventions", () => {
+    const repo = initRepo(path.join(tempDir(), "product"), { "docs/index.md": "# product\n" });
     const text = renderIndex(
       [
-        shard({ description: "Product decisions", useWhen: "Pricing questions" }),
+        shard({ path: repo, description: "Product decisions", useWhen: "Pricing questions" }),
         shard({ id: "handbook", format: "generic", mode: "read", path: "/shards/handbook", roots: [{ path: "." }] })
       ],
       "work",
-      "/shards/product/docs"
+      path.join(repo, "docs")
     );
     expect(text).toContain("# Globu knowledge shards (context: work)");
-    expect(text).toContain("- **product** (okf, writable, you are working inside it)");
+    expect(text).toContain(`- **product** (okf, writable, you are working inside it)\n  - Location: ${repo}\n`);
     expect(text).toContain("  - What: Product decisions\n  - Use when: Pricing questions");
-    expect(text).toContain("  - Entry: product: /shards/product/docs/index.md");
+    expect(text).toContain(`  - Entry: product: ${repo}/docs/index.md`);
     expect(text).toContain(
       "- **handbook** (generic, read-only)\n  - Location: /shards/handbook\n  - Entry: /shards/handbook"
     );
     expect(text).toContain("- **okf**: Each root is an OKF base.");
     expect(text).toContain("- **generic**: This shard has no declared knowledge format.");
     expect(text).not.toContain("Not available locally");
+  });
+
+  it("points at the worktree a session runs in", () => {
+    const sandbox = tempDir();
+    const repo = initRepo(path.join(sandbox, "product"), { "docs/index.md": "# product\n" });
+    const worktree = addWorktree(repo, path.join(sandbox, "elsewhere"), "feature");
+    const text = renderIndex([shard({ path: repo, mode: "read" })], null, worktree);
+    expect(text).toContain("- **product** (okf, read-only, you are working inside it)");
+    expect(text).toContain(
+      `  - Location: ${worktree} (this session's worktree. Read and edit it here, not in the main checkout at ${repo})`
+    );
+    expect(text).toContain(`  - Entry: product: ${worktree}/docs/index.md`);
+  });
+
+  it("marks ask shards as writable only from inside", () => {
+    const repo = initRepo(path.join(tempDir(), "product"));
+    const shards = [shard({ path: repo, mode: "ask" })];
+
+    const outside = renderIndex(shards, null, "/elsewhere");
+    expect(outside).toContain("- **product** (okf, ask first)");
+    expect(outside).toContain("Only edit shards marked writable. The exception is a shard marked ask first:");
+
+    const inside = renderIndex(shards, null, repo);
+    expect(inside).toContain("- **product** (okf, writable, you are working inside it)");
+    expect(inside).toContain("Only edit shards marked writable. Never copy knowledge");
   });
 
   it("truncates long root lists and skips unknown formats", () => {

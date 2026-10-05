@@ -1,7 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { baseIndex, commitAll, git, initRepo, read, tempDir, write } from "../../testing/index.js";
+import {
+  addWorktree,
+  bareWorktree,
+  baseIndex,
+  commitAll,
+  git,
+  initRepo,
+  read,
+  tempDir,
+  write
+} from "../../testing/index.js";
 import { loadManifest, saveManifest } from "./manifest.js";
 import { clonesDir, manifestPath, statePath } from "./paths.js";
 import {
@@ -98,6 +108,20 @@ describe("register a local directory", () => {
     expect(loadManifest().shards).toHaveLength(1);
   });
 
+  it("records the main checkout when run from a worktree", () => {
+    const repo = localRepo("product");
+    const nested = addWorktree(repo, path.join(repo, ".claude/worktrees/one"), "one");
+    const outside = addWorktree(repo, path.join(sandbox, "elsewhere"), "two");
+
+    expect(register({ locator: ".", cwd: nested }).shard.path).toBe(repo);
+    expect(register({ locator: outside, cwd: sandbox })).toMatchObject({ action: "attached", shard: { path: repo } });
+  });
+
+  it("records the worktree itself when the repo has no main checkout", () => {
+    const worktree = bareWorktree(localRepo("source"), path.join(sandbox, "bare.git"), path.join(sandbox, "work/tree"));
+    expect(register({ locator: worktree, cwd: sandbox, id: "tree" }).shard.path).toBe(worktree);
+  });
+
   it("rejects bad input", () => {
     const repo = localRepo("notes");
     const plain = path.join(sandbox, "plain");
@@ -134,6 +158,7 @@ describe("register a URL", () => {
   it("needs --path for an editable shard and clones there", () => {
     const url = remoteRepo("notes");
     expect(() => register({ locator: url, cwd: sandbox, mode: "write" })).toThrow(/--path/);
+    expect(() => register({ locator: url, cwd: sandbox, mode: "ask" })).toThrow(/--path/);
     expect(() => register({ locator: `file://${sandbox}/remotes/..`, cwd: sandbox })).toThrow(/invalid shard id/);
 
     const { shard } = register({ locator: url, cwd: sandbox, dest: "work/notes" });
@@ -224,6 +249,7 @@ describe("updateShard", () => {
     register({ locator: remoteRepo("managed"), cwd: sandbox });
     expect(updateShard("managed", { mode: "read" }).mode).toBe("read");
     expect(() => updateShard("managed", { mode: "write" })).toThrow(/globu-managed/);
+    expect(() => updateShard("managed", { mode: "ask" })).toThrow(/globu-managed/);
     fs.rmSync(statePath());
     expect(() => updateShard("managed", { mode: "read" })).toThrow(/no local clone yet/);
     expect(() => updateShard("nope", {})).toThrow(/no shard registered/);

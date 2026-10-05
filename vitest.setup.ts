@@ -12,4 +12,5 @@ beforeEach(() => {
   process.env.GLOBU_HOME = path.join(sandbox, "globu");
   process.env.CLAUDE_CONFIG_DIR = path.join(sandbox, "claude");
   delete process.env.GLOBU_CONTEXT;
+  delete process.env.CLAUDE_PROJECT_DIR;
 });

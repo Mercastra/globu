@@ -1,4 +1,9 @@
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+
+export type Checkout = { root: string; commonDir: string };
+
+const WORKTREE_PREFIX = "worktree ";
 
 function git(args: string[], cwd?: string): string {
   try {
@@ -16,8 +21,22 @@ export function isRepo(dir: string): boolean {
   }
 }
 
-export function repoRoot(dir: string): string {
-  return git(["rev-parse", "--show-toplevel"], dir);
+export function checkoutOf(dir: string): Checkout | null {
+  try {
+    const [root, commonDir] = git(
+      ["rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir"],
+      dir
+    ).split("\n");
+    return { root, commonDir: fs.realpathSync(commonDir) };
+  } catch {
+    return null;
+  }
+}
+
+export function mainCheckout(dir: string): string {
+  const [main, kind] = git(["worktree", "list", "--porcelain"], dir).split("\n");
+  if (kind === "bare") return git(["rev-parse", "--show-toplevel"], dir);
+  return fs.realpathSync(main.slice(WORKTREE_PREFIX.length));
 }
 
 export function originUrl(dir: string): string | null {

@@ -1,5 +1,13 @@
 # Knowledge base update log
 
+## 2026-10-05
+* `setup` now inserts the authoring guide after the whole intro paragraph and never takes a heading, list, table or comment for the intro. It used to split a hard-wrapped intro after its first line. Noted the placement rule in [knowledge-base plugin](./knowledge-base-plugin.md).
+* The guard now also runs before `Bash` and reads the command: redirects and file commands are certain writes, other commands possible ones, and commands that only read pass. Added the rules and their limits to [architecture](./architecture.md), updated [globu CLI](./globu-cli.md) and recorded the reasons in [decisions](./decisions.md).
+* Shards are now matched by git repo, not by path prefix. A session in any linked worktree gets that worktree in the index, in `list` and in the guard, and `register` always records the main checkout. Added the session view to [architecture](./architecture.md), updated [globu CLI](./globu-cli.md) and recorded the reasons in [decisions](./decisions.md).
+* Added the local mode `ask`: the guard returns the PreToolUse decision `ask` for edits from sessions in other repos and stays silent for the shard's own sessions. Updated [architecture](./architecture.md), [globu CLI](./globu-cli.md) and [decisions](./decisions.md).
+* The knowledge-base scan no longer searches nested repos or worktrees when it walks without git, and `owner` stops at the root of the repo or worktree. Updated [knowledge-base plugin](./knowledge-base-plugin.md).
+* Added the cloud session and teammate discovery use case to the open question on importing manifests in [decisions](./decisions.md).
+
 ## 2026-10-04
 * Chose the MIT licence and recorded it in [decisions](./decisions.md). Development and CI moved to Node 26.
 * The release workflow now waits until the published tarballs can be downloaded before it commits the pin and moves stable. Updated [development](./development.md).

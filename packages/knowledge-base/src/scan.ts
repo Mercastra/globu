@@ -9,6 +9,10 @@ export type Base = { name: string; description: string; docsDir: string; path: s
 const SKIPPED_DIRS = new Set(["node_modules", ".git", "target", "build", "dist", "out", ".gradle", ".venv"]);
 const INDEX_SUFFIX = `${DOCS_DIRNAME}/${INDEX_FILENAME}`;
 
+function isRepoRoot(dir: string): boolean {
+  return fs.existsSync(path.join(dir, ".git"));
+}
+
 function toPosix(relativePath: string): string {
   return relativePath.split(path.sep).join("/");
 }
@@ -29,7 +33,8 @@ function gitFiles(rootDir: string): string[] | null {
 function walkFiles(rootDir: string, dir: string = rootDir, found: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      if (!SKIPPED_DIRS.has(entry.name)) walkFiles(rootDir, path.join(dir, entry.name), found);
+      const child = path.join(dir, entry.name);
+      if (!SKIPPED_DIRS.has(entry.name) && !isRepoRoot(child)) walkFiles(rootDir, child, found);
     } else {
       found.push(toPosix(path.relative(rootDir, path.join(dir, entry.name))));
     }
@@ -84,7 +89,7 @@ export function ownerBase(filePath: string, stopAt?: string): string | null {
     const nested = path.join(dir, DOCS_DIRNAME);
     if (readBaseIndex(nested)) return nested;
     const parent = path.dirname(dir);
-    if (dir === limit || parent === dir) return null;
+    if (dir === limit || parent === dir || isRepoRoot(dir)) return null;
     dir = parent;
   }
 }

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { baseIndex, initRepo, tempDir, write } from "../../testing/index.js";
+import { addWorktree, baseIndex, initRepo, tempDir, write } from "../../testing/index.js";
 import { findBases, isInside, ownerBase, readBaseIndex } from "./scan.js";
 
 describe("findBases", () => {
@@ -31,7 +31,15 @@ describe("findBases", () => {
     const root = tempDir();
     write(root, "docs/index.md", '---\nokf_version: "0.2"\n---\n');
     write(root, "node_modules/dep/docs/index.md", baseIndex("dep"));
+    write(root, ".claude/worktrees/one/.git", "gitdir: elsewhere\n");
+    write(root, ".claude/worktrees/one/docs/index.md", baseIndex("worktree"));
     expect(findBases(root).map((base) => [base.name, base.path])).toEqual([[path.basename(root), "docs"]]);
+  });
+
+  it("does not look inside a nested worktree", () => {
+    const repo = initRepo(tempDir(), { "docs/index.md": baseIndex("root") });
+    addWorktree(repo, path.join(repo, ".claude/worktrees/one"), "one");
+    expect(findBases(repo).map((base) => base.path)).toEqual(["docs"]);
   });
 
   it("accepts a docs directory as the root", () => {
@@ -65,6 +73,14 @@ describe("ownerBase", () => {
   it("accepts directories and files that do not exist yet", () => {
     expect(ownerBase(path.join(root, "packages/api"))).toBe(path.join(root, "packages/api/docs"));
     expect(ownerBase(path.join(root, "packages/api/src/New.java"))).toBe(path.join(root, "packages/api/docs"));
+  });
+
+  it("stops at the root of the repo or worktree that holds the file", () => {
+    const nested = path.join(root, ".claude/worktrees/one");
+    write(nested, ".git", "gitdir: elsewhere\n");
+    expect(ownerBase(write(nested, "src/app.js", ""))).toBeNull();
+    write(nested, "docs/index.md", baseIndex("worktree"));
+    expect(ownerBase(path.join(nested, "src/app.js"))).toBe(path.join(nested, "docs"));
   });
 
   it("stops at the given directory or at the filesystem root", () => {

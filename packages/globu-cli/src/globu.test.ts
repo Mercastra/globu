@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { claudeSettingsPath, manifestPath, statePath } from "../../globu-core/src/index.js";
-import { baseIndex, captureIo, initRepo, read, tempDir, write } from "../../testing/index.js";
+import { addWorktree, baseIndex, captureIo, initRepo, read, tempDir, write } from "../../testing/index.js";
 import { globuMain } from "./globu.js";
 
 let sandbox: string;
@@ -95,10 +95,27 @@ describe("globu register, show and list", () => {
     expect(run(["show", "a"]).out).toContain("path:        (not synced)\nowner:       -\n");
   });
 
+  it("shows the worktree a session runs in", () => {
+    const repo = localRepo("notes", { "docs/index.md": baseIndex("notes") });
+    const worktree = addWorktree(repo, path.join(sandbox, "elsewhere"), "feature");
+    expect(run(["register", "."], "", worktree).out).toContain(`path:        ${repo}\n`);
+
+    expect(run(["list"], "", worktree).out).toBe(`notes\tokf\twrite\t${repo}\tthis session: ${worktree}\n`);
+    expect(JSON.parse(run(["list", "--json"], "", worktree).out).shards).toMatchObject([
+      { id: "notes", path: repo, workPath: worktree, here: true }
+    ]);
+    expect(json(["list"]).shards).toMatchObject([{ path: repo, workPath: repo, here: false }]);
+    expect(run(["index"], "", worktree).out).toContain(`  - Entry: notes: ${worktree}/docs/index.md`);
+    expect(run(["hook", "session-start"], { cwd: worktree }).out).toContain(`  - Location: ${worktree} (this session`);
+  });
+
   it("rejects bad arguments", () => {
     expect(run(["register"]).err).toBe("error: missing required argument 'locator'\n");
     expect(run(["register", ".", "--mode", "admin"]).err).toBe(
-      "error: option '--mode <mode>' argument 'admin' is invalid. Allowed choices are read, write.\n"
+      "error: option '--mode <mode>' argument 'admin' is invalid. Allowed choices are read, ask, write.\n"
+    );
+    expect(run(["set", "x", "--access", "ask"]).err).toBe(
+      "error: option '--access <access>' argument 'ask' is invalid. Allowed choices are read, write.\n"
     );
     expect(run(["show"]).err).toBe("error: missing required argument 'id'\n");
     expect(run(["show", "nope"]).err).toBe('globu: no shard registered with id "nope"\n');
@@ -224,6 +241,95 @@ describe("globu hook guard", () => {
     expect(run(["hook", "guard"], { tool_input: { file_path: path.join(sandbox, "elsewhere.md") } }).code).toBe(0);
     run(["set", "notes", "--mode", "write"]);
     expect(run(["hook", "guard"], { tool_input: { file_path: path.join(repo, "a.md") } }).code).toBe(0);
+  });
+
+  it("blocks edits in any worktree of a read-only shard", () => {
+    const repo = localRepo("notes");
+    const worktree = addWorktree(repo, path.join(sandbox, "elsewhere"), "feature");
+    run(["register", repo, "--mode", "read"]);
+    const blocked = run(["hook", "guard"], { cwd: worktree, tool_input: { file_path: "new/dir/a.md" } });
+    expect(blocked.code).toBe(2);
+    expect(blocked.err).toContain('belongs to shard "notes", which is read-only');
+  });
+
+  it("asks before edits to an ask shard from another repo", () => {
+    const repo = localRepo("notes");
+    const worktree = addWorktree(repo, path.join(sandbox, "elsewhere"), "feature");
+    const other = localRepo("other");
+    const file = path.join(repo, "docs/a.md");
+    run(["register", repo, "--mode", "ask"]);
+
+    const asked = run(["hook", "guard"], { cwd: other, tool_input: { file_path: file } });
+    expect(asked).toMatchObject({ code: 0, err: "" });
+    expect(JSON.parse(asked.out)).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "ask",
+        permissionDecisionReason: expect.stringContaining(`${file} belongs to shard "notes", which asks before edits`)
+      }
+    });
+
+    const silent = { code: 0, out: "", err: "" };
+    expect(run(["hook", "guard"], { cwd: repo, tool_input: { file_path: file } })).toEqual(silent);
+    expect(run(["hook", "guard"], { cwd: worktree, tool_input: { file_path: "a.md" } })).toEqual(silent);
+
+    process.env.CLAUDE_PROJECT_DIR = worktree;
+    expect(run(["hook", "guard"], { cwd: other, tool_input: { file_path: file } })).toEqual(silent);
+    process.env.CLAUDE_PROJECT_DIR = other;
+    expect(run(["hook", "guard"], { cwd: repo, tool_input: { file_path: file } }).out).toContain('"ask"');
+  });
+
+  it("reads shell commands for a read-only shard", () => {
+    const repo = localRepo("notes");
+    const other = localRepo("other");
+    run(["register", repo, "--mode", "read"]);
+    const bash = (command: string, cwd = other) => run(["hook", "guard"], { cwd, tool_input: { command } });
+
+    const denied = bash(`rm ${repo}/a.md`);
+    expect(denied.code).toBe(2);
+    expect(denied.err).toContain(
+      `this command writes to ${repo}/a.md, which belongs to shard "notes". That shard is read-only on this machine. Do not edit it.`
+    );
+    expect(bash(`node tool.js ${repo}/data; echo x > ${repo}/out.txt`).code).toBe(2);
+    expect(bash("touch a.md", repo).code).toBe(2);
+
+    const asked = bash(`node tool.js ${repo}/data`);
+    expect(asked.code).toBe(0);
+    expect(JSON.parse(asked.out).hookSpecificOutput).toMatchObject({
+      permissionDecision: "ask",
+      permissionDecisionReason: expect.stringContaining(
+        `this command may change ${repo}/data, which belongs to shard "notes". That shard is read-only on this machine. Approve only if the command does not modify it.`
+      )
+    });
+
+    const silent = { code: 0, out: "", err: "" };
+    expect(bash("npm test", repo)).toEqual(silent);
+    expect(bash(`cat ${repo}/README.md && git -C ${repo} log`)).toEqual(silent);
+    expect(bash("rm a.md")).toEqual(silent);
+  });
+
+  it("reads shell commands for an ask shard", () => {
+    const repo = localRepo("notes");
+    const other = localRepo("other");
+    run(["register", repo, "--mode", "ask"]);
+    const bash = (command: string, cwd = other) => run(["hook", "guard"], { cwd, tool_input: { command } });
+
+    const written = bash(`echo x > ${repo}/out.txt`);
+    expect(written.code).toBe(0);
+    expect(JSON.parse(written.out).hookSpecificOutput.permissionDecisionReason).toContain(
+      `this command writes to ${repo}/out.txt, which belongs to shard "notes". That shard asks before edits from sessions in other repos.`
+    );
+    expect(bash(`cd ${repo} && npm test`).out).toContain(`this command may change ${repo}/test, which`);
+    process.env.CLAUDE_PROJECT_DIR = other;
+    expect(bash("npm test", repo).out).toContain('"ask"');
+
+    const silent = { code: 0, out: "", err: "" };
+    process.env.CLAUDE_PROJECT_DIR = repo;
+    expect(bash("npm test && rm a.md", repo)).toEqual(silent);
+    expect(bash(`rm ${repo}/a.md`)).toEqual(silent);
+    delete process.env.CLAUDE_PROJECT_DIR;
+    expect(bash(`ls ${repo}`)).toEqual(silent);
+    expect(bash(`D=${repo}; rm $D/a.md`).out).toContain(`this command writes to ${repo}/a.md`);
   });
 
   it("stays out of the way when it has nothing to check", () => {

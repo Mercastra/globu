@@ -67,11 +67,30 @@ The rule that separates them: anything true on every machine goes in the manifes
 | Clone | shallow | full |
 | `globu sync` | fast-forward pull | fetch only, never resets or switches branch |
 
-A shard's effective mode is the stricter of two settings: the manifest's optional `access: read` cap and the local `mode` in state.
+A shard's effective mode is the stricter of two settings: the manifest's optional `access: read` cap and the local `mode` in state. The local mode has three values:
+
+| Mode | Meaning |
+|---|---|
+| `read` | Never edited, not even from a session inside the shard's own repo. |
+| `ask` | Edited freely from a session whose home is the shard's repo. From any other session every edit raises a permission prompt. User-owned clones only. |
+| `write` | Edited from any session. |
+
+The state path of a shard is always the main checkout of its repo. `register` run from a linked worktree records the main checkout, not the worktree.
 
 ## Resolver
 
 The resolver merges manifest and state into resolved shards (`id`, `path`, `mode`, `owner`, `present`, `format`, `roots`, routing text). Every command and hook works from that list. The active context filters it: `GLOBU_CONTEXT` wins, then `current` in state, and with neither set every shard is active.
+
+## Session view
+
+A shard is a repo, not a directory. A session often runs in a linked git worktree of a shard's repo, and that worktree can sit anywhere on disk. The session view (`packages/globu-core/src/session.ts`) adds two fields to each resolved shard for one working directory:
+
+- `here`: the directory is in the main checkout or in any linked worktree of the shard's repo.
+- `workPath`: the root of that checkout when `here` is true, otherwise the shard's `path`. This is where the session reads and writes the shard.
+
+Two checkouts belong to the same repo when they share a git common directory. The origin URL is not used: a second clone of the same repo is a different working copy, and a read-only managed clone must not block edits in the user's own clone.
+
+The index, `list` and both hooks use the session view. `show`, `doctor`, `sync` and `claude sync` work on the registry and always mean the main checkout.
 
 ## Probe and drivers
 
@@ -98,16 +117,40 @@ The CLI detects structure only. Meaning is drafted by Claude: the `register` ski
 
 All of it comes from the `globu` plugin, which should be enabled at user scope.
 
-- **SessionStart hook** runs `globu hook session-start`. It prints the active context's index (id, location, routing text, entry files, format conventions) and Claude Code adds that to the session. It prints nothing when no shards are registered. It reads local files only.
-- **PreToolUse guard** runs `globu hook guard` before `Edit`, `Write` and `NotebookEdit`. It blocks the edit when the target file sits inside a shard whose effective mode is read.
+- **SessionStart hook** runs `globu hook session-start`. It prints the active context's index (id, location, routing text, entry files, format conventions) and Claude Code adds that to the session. Location and entry files come from `workPath`, so a session in a worktree is pointed at that worktree and told to leave the main checkout alone. It prints nothing when no shards are registered. It reads local files and runs `git rev-parse`.
+- **PreToolUse guard** runs `globu hook guard` before `Edit`, `Write`, `NotebookEdit` and `Bash`. It finds the shard by the repo the target belongs to, so a file in any worktree maps to its shard. For a `read` shard it blocks the edit with exit code 2. For an `ask` shard it returns the PreToolUse permission decision `ask`, which makes Claude Code prompt the user, unless the session's home is that shard's repo. Home is the repo of `CLAUDE_PROJECT_DIR`, the directory the session started in. The hook's `cwd` is only the fallback because it follows `cd`, and a session must not become exempt by changing into a sibling repo. Shell commands are read as described below.
 - **`globu claude sync`** writes the active shards' paths into `permissions.additionalDirectories` in the user's Claude settings so reads need no prompt. It records which entries it added and only ever changes those. It is an explicit command and nothing calls it implicitly.
 - **Skills**: `register` and `save-knowledge`.
 
 The repo a session runs in needs nothing. The hooks read `~/.globu` only.
 
+## Shell commands in the guard
+
+A shell command cannot be analysed exactly, so the guard reads it as well as a parser without a shell can. `packages/globu-core/src/shell.ts` splits the command into simple commands and their redirects. `command.ts` turns those into targets, each either a certain write or a possible one, and `guard.ts` turns targets into a verdict.
+
+| What the command does | Target | Certainty |
+|---|---|---|
+| Redirects output to a file (`>`, `>>`, `&>`) | that file | certain |
+| `rm`, `rmdir`, `mv`, `touch`, `mkdir`, `tee`, `truncate` | every path argument | certain |
+| `cp`, `ln` | the last path argument | certain |
+| A command that only reads (`cat`, `ls`, `grep`, `find` without `-delete` or `-exec`, `sed` without `-i` and so on) | none | |
+| `git` with a reading subcommand (`status`, `log`, `diff`, `branch --show-current` and so on) | none | |
+| Any other `git` subcommand | the directory it runs in, after `-C` | possible |
+| Anything else | every path argument and the directory it runs in | possible |
+
+The directory a command runs in follows `cd` and `pushd` within the command. Variables assigned in the same command are expanded, `~` and `$HOME` too, and `bash -c "..."` is read recursively. Heredoc bodies and comments are skipped.
+
+| Shard mode | Certain write | Possible write |
+|---|---|---|
+| `read` | blocked | prompt, unless the session's home is that repo |
+| `ask` | prompt, unless home | prompt, unless home |
+| `write` | nothing | nothing |
+
+What it cannot see: paths built from variables set elsewhere, from command substitution or from a pipe into `xargs`, and writes made inside a script the command runs. A possible write therefore prompts instead of blocking, and a miss is possible. The guard lowers the chance of an unnoticed change to another repo. It is not a sandbox.
+
 ## Writing knowledge back
 
-`save-knowledge` names a target shard for every item, checks the mode and then writes using the shard's format. For `okf` shards it hands the target base directories to `knowledge-base:update-knowledge` when that plugin is installed. Otherwise it follows the authoring guide embedded in the base's `index.md`. Edits are left in the working tree.
+`save-knowledge` names a target shard for every item, checks the mode and then writes using the shard's format. It writes under `workPath`, so knowledge saved from a worktree lands on that worktree's branch. For `okf` shards it hands the target base directories to `knowledge-base:update-knowledge` when that plugin is installed. Otherwise it follows the authoring guide embedded in the base's `index.md`. Edits are left in the working tree.
 
 Rules that hold everywhere:
 
@@ -120,7 +163,7 @@ Rules that hold everywhere:
 ```
 packages/knowledge-base      shared OKF library: frontmatter, scan, validate, setup, log
 packages/knowledge-base-cli  the knowledge-base program, published as @mercastra/knowledge-base
-packages/globu-core          manifest, state, resolver, probe, drivers, contexts, Claude settings
+packages/globu-core          manifest, state, resolver, session view, probe, drivers, contexts, Claude settings
 packages/globu-cli           the globu program, published as @mercastra/globu
 packages/cli-common          what both programs share: Io, the commander runner, hook input
 packages/testing             test helpers

@@ -2,7 +2,11 @@ import path from "node:path";
 import { Option } from "commander";
 import { command, type Io, type JsonOption, print, readHookInput, runCli } from "../../cli-common/src/index.js";
 import {
+  type Access,
+  commandTargets,
   doctor,
+  guardVerdict,
+  locate,
   type Mode,
   type ResolvedShard,
   register,
@@ -11,14 +15,17 @@ import {
   reprobe,
   resolveActive,
   resolveAll,
+  type SessionShard,
+  sessionHome,
   setContext,
   sync,
   syncClaudeDirectories,
   unregister,
   updateShard,
-  useContext
+  useContext,
+  type Verdict
 } from "../../globu-core/src/index.js";
-import { isInside, VERSION } from "../../knowledge-base/src/index.js";
+import { VERSION } from "../../knowledge-base/src/index.js";
 
 const PROGRAM = {
   name: "globu",
@@ -29,13 +36,21 @@ const PROGRAM = {
 const FOOTER = `
 Config lives in ~/.globu (override with GLOBU_HOME). GLOBU_CONTEXT overrides the active context for one process.`;
 
-function modeOption(flags: string, description: string): Option {
-  return new Option(flags, description).choices(["read", "write"]);
+const MODES: Mode[] = ["read", "ask", "write"];
+const ACCESS: Access[] = ["read", "write"];
+
+function choiceOption(flags: string, description: string, choices: string[]): Option {
+  return new Option(flags, description).choices(choices);
 }
 
 function location(shard: ResolvedShard): string {
   if (shard.path === null) return "(not synced)";
   return shard.present ? shard.path : `${shard.path} (missing)`;
+}
+
+function listLine(shard: SessionShard): string {
+  const session = shard.workPath === shard.path ? [] : [`this session: ${shard.workPath}`];
+  return [shard.id, shard.format, shard.mode, location(shard), ...session].join("\t");
 }
 
 function shardDetails(shard: ResolvedShard): string {
@@ -53,6 +68,19 @@ function shardDetails(shard: ResolvedShard): string {
   ].join("\n");
 }
 
+function guardReason({ decision, shard, target }: Verdict, viaCommand: boolean): string {
+  const subject = viaCommand
+    ? `this command ${target.certain ? "writes to" : "may change"} ${target.path}, which belongs to shard "${shard.id}". That shard`
+    : `${target.path} belongs to shard "${shard.id}", which`;
+  if (decision === "deny") {
+    return `globu: ${subject} is read-only on this machine. Do not edit it. If the user wants it editable, they can run \`globu set ${shard.id} --mode write\` (user-owned clones only).`;
+  }
+  if (shard.mode === "read") {
+    return `globu: ${subject} is read-only on this machine. Approve only if the command does not modify it.`;
+  }
+  return `globu: ${subject} asks before edits from sessions in other repos. Approve only if you want this session to change it.`;
+}
+
 const UNREGISTER_SUFFIX = { none: "", kept: ", clone left in place", removed: ", clone removed" };
 
 export function globuMain(argv: string[], io: Io): number {
@@ -63,7 +91,7 @@ export function globuMain(argv: string[], io: Io): number {
 
       command(program, "register <locator>", "register a git repo as a shard, from a local path or a repo URL")
         .option("--id <id>", "shard id, defaults to the repo name")
-        .addOption(modeOption("--mode <mode>", "whether this machine may edit the shard"))
+        .addOption(choiceOption("--mode <mode>", "whether this machine may edit the shard", MODES))
         .option("--path <dir>", "where to clone a repo URL, or where its clone already is")
         .option("--description <text>", "what the shard contains")
         .option("--use-when <text>", "when Claude should consult the shard")
@@ -104,8 +132,9 @@ export function globuMain(argv: string[], io: Io): number {
       command(program, "list", "list the shards in the active context")
         .option("--all", "list every shard, whatever the active context")
         .action((options: JsonOption & { all?: boolean }) => {
-          const { context, shards } = options.all ? { ...resolveAll(), context: null } : resolveActive();
-          const lines = shards.map((shard) => `${shard.id}\t${shard.format}\t${shard.mode}\t${location(shard)}`);
+          const { context, shards: resolved } = options.all ? { ...resolveAll(), context: null } : resolveActive();
+          const shards = locate(resolved, io.cwd);
+          const lines = shards.map(listLine);
           if (lines.length === 0) lines.push("no shards registered");
           if (context !== null) lines.unshift(`context: ${context}`);
           print(io, options.json, { context, shards }, lines.join("\n"));
@@ -122,12 +151,12 @@ export function globuMain(argv: string[], io: Io): number {
       command(program, "set <id>", "edit a shard's routing text, local mode or access cap")
         .option("--description <text>", "what the shard contains")
         .option("--use-when <text>", "when Claude should consult the shard")
-        .addOption(modeOption("--mode <mode>", "whether this machine may edit the shard"))
-        .addOption(modeOption("--access <access>", "the most any machine may do with the shard"))
+        .addOption(choiceOption("--mode <mode>", "whether this machine may edit the shard", MODES))
+        .addOption(choiceOption("--access <access>", "the most any machine may do with the shard", ACCESS))
         .action(
           (
             id: string,
-            options: JsonOption & { description?: string; useWhen?: string; mode?: Mode; access?: Mode }
+            options: JsonOption & { description?: string; useWhen?: string; mode?: Mode; access?: Access }
           ) => {
             const shard = updateShard(id, {
               description: options.description,
@@ -226,24 +255,38 @@ export function globuMain(argv: string[], io: Io): number {
 
       hook
         .command("guard")
-        .description("PreToolUse entry point: exit 2 when the target file is in a read-only shard")
+        .description("PreToolUse entry point: block or ask before changes to read-only and ask shards")
         .action(() => {
           const input = readHookInput(io);
+          const cwd = input?.cwd ?? io.cwd;
           const filePath = input?.tool_input.file_path ?? input?.tool_input.notebook_path;
-          if (filePath === undefined) return;
-          const file = path.resolve(input?.cwd ?? io.cwd, filePath);
-          let shards: ResolvedShard[];
+          const command = input?.tool_input.command ?? "";
+          const targets =
+            filePath === undefined
+              ? commandTargets(command, cwd)
+              : [{ path: path.resolve(cwd, filePath), certain: true }];
+          let verdict: Verdict | null;
           try {
-            shards = resolveAll().shards;
+            verdict = guardVerdict(resolveAll().shards, targets, sessionHome(cwd));
           } catch {
             return;
           }
-          const shard = shards.find((candidate) => candidate.path !== null && isInside(candidate.path, file));
-          if (!shard || shard.mode === "write") return;
-          io.err(
-            `globu: ${file} belongs to shard "${shard.id}", which is read-only on this machine. Do not edit it. If the user wants it editable, they can run \`globu set ${shard.id} --mode write\` (user-owned clones only).`
+          if (verdict === null) return;
+          const reason = guardReason(verdict, filePath === undefined);
+          if (verdict.decision === "deny") {
+            io.err(reason);
+            exit(2);
+            return;
+          }
+          io.out(
+            JSON.stringify({
+              hookSpecificOutput: {
+                hookEventName: "PreToolUse",
+                permissionDecision: "ask",
+                permissionDecisionReason: reason
+              }
+            })
           );
-          exit(2);
         });
     },
     argv,

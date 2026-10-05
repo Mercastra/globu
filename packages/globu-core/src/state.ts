@@ -2,7 +2,7 @@ import { z } from "zod";
 import { statePath } from "./paths.js";
 import { readConfig, writeConfig } from "./store.js";
 
-const ModeSchema = z.enum(["read", "write"]);
+const ModeSchema = z.enum(["read", "ask", "write"]);
 const OwnerSchema = z.enum(["globu", "user"]);
 
 const LocalShardSchema = z.object({
@@ -19,6 +19,7 @@ const StateSchema = z.object({
 });
 
 export type Mode = z.infer<typeof ModeSchema>;
+export type Access = Exclude<Mode, "ask">;
 export type Owner = z.infer<typeof OwnerSchema>;
 export type LocalShard = z.infer<typeof LocalShardSchema>;
 export type State = z.infer<typeof StateSchema>;

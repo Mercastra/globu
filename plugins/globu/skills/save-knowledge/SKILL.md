@@ -15,7 +15,7 @@ Decides which shard each piece of knowledge belongs in, checks that it may be wr
    ```bash
    node <plugin-root>/node_modules/@mercastra/globu/dist/globu.mjs list --json
    ```
-   Each shard has `id`, `path`, `mode`, `format`, `roots`, `description` and `useWhen`.
+   Each shard has `id`, `path`, `workPath`, `here`, `mode`, `format`, `roots`, `description` and `useWhen`. Run the command from the session's working directory: `here` is true for the shard whose repo you are working in, and `workPath` is where to read and write it. In a git worktree `workPath` is the worktree, not the main checkout in `path`.
 
 3. **Choose a target for every item, explicitly.** There is no default shard.
    - Match each item against `description` and `useWhen`.
@@ -25,10 +25,13 @@ Decides which shard each piece of knowledge belongs in, checks that it may be wr
 
 4. **State the plan before writing**: each item and the shard it will go to. If any target is a shared shard, or the user has not seen this routing before, wait for confirmation.
 
-5. **Check access.** Only shards with `mode: "write"` can be edited. For a read-only shard, tell the user what you would have written and stop there for that item.
+5. **Check access** by `mode`.
+   - `write`: edit.
+   - `ask`: edit freely when `here` is true. Otherwise the shard belongs to another repo: get the user's explicit agreement in this session before the first edit, and expect a permission prompt on every edit.
+   - `read`: do not edit. Tell the user what you would have written and stop there for that item.
 
 6. **Write, per shard, using its format.**
-   - `okf`: if the `knowledge-base:update-knowledge` skill is available, invoke it with the target base directories (the shard `path` joined with each relevant root `path`). Otherwise read the root's `index.md`, follow the authoring guide in it and add a dated entry to `log.md`.
+   - `okf`: if the `knowledge-base:update-knowledge` skill is available, invoke it with the target base directories (the shard `workPath` joined with each relevant root `path`). Never build them from `path`: from a worktree that would send the edits to the main checkout. Otherwise read the root's `index.md`, follow the authoring guide in it and add a dated entry to `log.md`.
    - `generic`: follow the conventions the existing files already use. Keep the change small and say what you changed.
 
 7. **Report** what was written where, and what was skipped and why.
