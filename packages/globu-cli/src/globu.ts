@@ -11,6 +11,7 @@ import {
   importManifests,
   locate,
   type Mode,
+  type RefResult,
   type ResolvedShard,
   register,
   removeContext,
@@ -18,6 +19,7 @@ import {
   reprobe,
   resolveActive,
   resolveAll,
+  resolveRefs,
   type SessionShard,
   sessionHome,
   setContext,
@@ -106,6 +108,10 @@ function importText(result: ImportResult): string {
     if (result.plans.some((plan) => plan.added.length > 0)) lines.push("next: `globu sync` clones the new shards");
   }
   return lines.join("\n");
+}
+
+function refLine(result: RefResult): string {
+  return result.ok ? `ok\t${result.ref}\t${result.location}` : `fail\t${result.ref}\t${result.reason}`;
 }
 
 const UNREGISTER_SUFFIX = { none: "", kept: ", clone left in place", removed: ", clone removed" };
@@ -263,6 +269,19 @@ export function globuMain(argv: string[], io: Io): number {
         const index = renderIndex(shards, active, io.cwd);
         print(io, options.json, { context: active, index }, index);
       });
+
+      command(program, "resolve <refs...>", "check that references exist on their repo's default branch").action(
+        (refs: string[], options: JsonOption) => {
+          const { shards: active, context: activeContext } = resolveActive();
+          const report = resolveRefs(refs, resolveAll().shards, active, io.cwd, activeContext);
+          const touched = active.filter((shard) => report.shards.includes(shard.id));
+          const index = renderIndex(touched, activeContext, io.cwd);
+          const lines = report.refs.map(refLine);
+          if (index) lines.push("", index);
+          print(io, options.json, { ...report, context: activeContext, index }, lines.join("\n"));
+          if (!report.ok) exit(1);
+        }
+      );
 
       command(program, "doctor", "report problems with the registered shards").action((options: JsonOption) => {
         const findings = doctor();

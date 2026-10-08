@@ -40,6 +40,30 @@ export function mainCheckout(dir: string): string {
   return fs.realpathSync(main.slice(WORKTREE_PREFIX.length));
 }
 
+export function worktreeRoots(dir: string): string[] {
+  return git(["worktree", "list", "--porcelain"], dir)
+    .split("\n")
+    .filter((line) => line.startsWith(WORKTREE_PREFIX))
+    .map((line) => line.slice(WORKTREE_PREFIX.length));
+}
+
+export function defaultRevision(dir: string): string {
+  try {
+    return git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], dir);
+  } catch {
+    return "HEAD";
+  }
+}
+
+export function hasPath(dir: string, revision: string, relPath: string): boolean {
+  try {
+    git(["cat-file", "-e", `${revision}:${relPath}`], dir);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function originUrl(dir: string): string | null {
   try {
     return git(["remote", "get-url", "origin"], dir);

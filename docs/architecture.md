@@ -131,9 +131,17 @@ All of it comes from the `globu` plugin, which should be enabled at user scope.
 - **PreToolUse guard** runs `globu hook guard` before `Edit`, `Write`, `NotebookEdit` and `Bash`. It finds the shard by the repo the target belongs to, so a file in any worktree maps to its shard. For a `read` shard it blocks the edit with exit code 2. For an `ask` shard it returns the PreToolUse permission decision `ask`, which makes Claude Code prompt the user, unless the session's home is that shard's repo. Home is the repo of `CLAUDE_PROJECT_DIR`, the directory the session started in. The hook's `cwd` is only the fallback because it follows `cd`, and a session must not become exempt by changing into a sibling repo. Shell commands are read as described below.
 - **`globu claude sync`** writes the active shards' paths into `permissions.additionalDirectories` in the user's Claude settings so reads need no prompt. It records which entries it added and only ever changes those. It is an explicit command and nothing calls it implicitly.
 - **PostToolUse edit hook** runs `globu hook validate-edit` after `Edit` and `Write` and validates the base an edited Markdown file belongs to. See [knowledge bases](./knowledge-base.md).
-- **Skills**: `setup-knowledge-base`, `register-knowledge-base` and `update-knowledge`.
+- **Skills**: `setup-knowledge-base`, `register-knowledge-base`, `update-knowledge` and `check-issue`.
 
 The repo a session runs in needs nothing. The hooks read `~/.globu` only.
+
+## Resolving references
+
+An issue written for a coding agent points at the docs that govern the work. `globu resolve` (`packages/globu-core/src/resolve.ts`) checks those pointers before the issue is handed over. It maps a ref's first segment to a registered shard, or else treats the ref as a path in the current repo, and asks git whether the path exists on the default branch: `origin/HEAD`, or `HEAD` of the main checkout when there is none.
+
+The check uses the default branch and not the working tree because the agent that delivers the issue checks the repo out fresh, in CI or in a new worktree. A decision record written in one session's worktree and never pushed is on disk here and missing there. When a path fails, the worktrees of the repo are searched so the report can say where the file is stuck. Locations of refs that resolve come from the session view, like the index.
+
+Reading the issue and turning loose mentions such as "decision 12" into refs is meaning, not structure, so it lives in the `check-issue` skill. The CLI knows nothing about Jira.
 
 ## Unattended runs
 

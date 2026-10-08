@@ -73,6 +73,16 @@ Ids are global: a team shard whose id or repo is already registered under someth
 | `hook validate-edit` | PostToolUse entry point for `Edit` and `Write`. Validates the base that owns an edited Markdown file and exits 2 with the errors when it fails. |
 | `hook guard` | PreToolUse entry point for `Edit`, `Write`, `NotebookEdit` and `Bash`. Exit code 2 when the target is in a `read` shard. For an `ask` shard changed from a session in another repo it prints a PreToolUse `permissionDecision` of `ask` and exits 0. Targets are matched to shards by git repo, so linked worktrees count wherever they are. For `Bash` it reads `tool_input.command`: certain writes are treated like file edits, possible ones only prompt. See [architecture](./architecture.md) for the rules and their limits. |
 
+## References
+
+| Command | Purpose |
+|---|---|
+| `resolve <ref...>` | Check that each reference exists on the default branch of its repo, then print the index of the shards the references touched. Exit code 1 when any reference fails. |
+
+A ref is `<shard-id>/<path>` when its first segment is a registered shard id, and otherwise a path relative to the current directory in the repo the command runs in. A shard id alone means the root of that shard's repo. The default branch is `origin/HEAD` as last fetched, or `HEAD` of the main checkout when the repo has no `origin/HEAD`. A file that exists only in the working tree, in a linked worktree, in an unpushed commit or on another branch does not resolve, because a coding agent that checks out the repo will not see it.
+
+Each failure names its reason: the shard is not in the active context, it has no clone on this machine, the path leaves the repo, or the path is not on the default branch. In the last case the worktrees where the path does exist are listed. A path in the current repo that fails while its first segment is not a directory there also says that no shard has that id, which is the usual sign of a shard missing from this machine. With `--json` the report has `ok`, `context`, `shards`, `index` and one entry per ref with `ref`, `shard`, `ok`, `location`, `revision`, `worktrees` and `reason`. `location` is under the session's worktree when the command runs in one, like the index. Run `globu sync` first when a doc was pushed from elsewhere. The `check-issue` skill extracts refs from a Jira issue and calls this.
+
 ## Diagnostics
 
 `doctor` reports, per shard: missing or wrong clone, origin mismatch, format or roots that changed since registration and missing routing text. Exit code 1 when any finding is an error.

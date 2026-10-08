@@ -260,6 +260,40 @@ describe("globu index, doctor and claude sync", () => {
   });
 });
 
+describe("globu resolve", () => {
+  it("reports each reference and the index of the shards it touched", () => {
+    const repo = localRepo("notes", { "docs/index.md": baseIndex("notes", "Team notes"), "docs/a.md": "a\n" });
+    run(["register", repo]);
+
+    const found = run(["resolve", "notes/docs/a.md"]);
+    expect(found.code).toBe(0);
+    expect(found.out).toMatch(
+      new RegExp(`^ok\\tnotes/docs/a\\.md\\t${repo}/docs/a\\.md\\n\\n# Globu knowledge shards\\n`)
+    );
+    expect(found.out).toContain("## Formats\n- **okf**:");
+
+    const missing = run(["resolve", "notes/docs/a.md", "notes/docs/b.md"]);
+    expect(missing.code).toBe(1);
+    expect(missing.out).toContain('\nfail\tnotes/docs/b.md\tnot on HEAD of shard "notes"\n');
+    expect(json(["resolve", "notes/docs/b.md"])).toMatchObject({
+      ok: false,
+      context: null,
+      shards: ["notes"],
+      refs: [{ ref: "notes/docs/b.md", ok: false, revision: "HEAD" }],
+      index: expect.stringContaining("- **notes** (okf, writable)")
+    });
+  });
+
+  it("prints no index when no shard is touched", () => {
+    expect(run(["resolve", "x.md"])).toEqual({
+      code: 1,
+      err: "",
+      out: 'fail\tx.md\tno shard is registered as "x.md" and the current directory is not in a git repo\n'
+    });
+    expect(run(["resolve"]).err).toBe("error: missing required argument 'refs'\n");
+  });
+});
+
 describe("globu hook session-start", () => {
   it("prints nothing without shards and the index with them", () => {
     expect(run(["hook", "session-start"], { cwd: sandbox })).toEqual({ code: 0, out: "", err: "" });
