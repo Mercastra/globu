@@ -1,6 +1,5 @@
 import path from "node:path";
 import { Option } from "commander";
-import { command, type Io, type JsonOption, print, readHookInput, runCli } from "../../cli-common/src/index.js";
 import {
   type Access,
   commandTargets,
@@ -26,10 +25,12 @@ import {
   type Verdict
 } from "../../globu-core/src/index.js";
 import { VERSION } from "../../knowledge-base/src/index.js";
+import { defineBaseCommands, validateEditHook } from "./base.js";
+import { command, type Io, type JsonOption, print, readHookInput, runCli } from "./cli/index.js";
 
 const PROGRAM = {
   name: "globu",
-  description: "Registry of knowledge shards for Claude Code.",
+  description: "Knowledge bases and a knowledge registry for Claude Code.",
   version: VERSION
 };
 
@@ -237,6 +238,8 @@ export function globuMain(argv: string[], io: Io): number {
           print(io, options.json, result, lines.join("\n"));
         });
 
+      defineBaseCommands(program.command("base").description("OKF knowledge bases inside the current repo"), io, exit);
+
       const hook = program.command("hook").description("hook entry points for Claude Code");
 
       hook
@@ -252,6 +255,11 @@ export function globuMain(argv: string[], io: Io): number {
             io.out(`Globu could not load its shard index: ${(err as Error).message}`);
           }
         });
+
+      hook
+        .command("validate-edit")
+        .description("PostToolUse entry point: validate the base that owns the edited file")
+        .action(() => validateEditHook(io, exit));
 
       hook
         .command("guard")

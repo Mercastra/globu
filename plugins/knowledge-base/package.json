@@ -1,7 +1,0 @@
-{
-  "name": "knowledge-base-plugin",
-  "private": true,
-  "dependencies": {
-    "@mercastra/knowledge-base": "0.2.0"
-  }
-}

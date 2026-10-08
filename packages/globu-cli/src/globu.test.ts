@@ -33,7 +33,7 @@ describe("globu help", () => {
     const help = run(["--help"]);
     expect(help.code).toBe(0);
     expect(help.out).toMatch(
-      /^Usage: globu \[options\] \[command\]\n\nRegistry of knowledge shards for Claude Code\.\n/
+      /^Usage: globu \[options\] \[command\]\n\nKnowledge bases and a knowledge registry for Claude Code\.\n/
     );
     expect(help.out).toContain("register [options] <locator>");
     expect(help.out).toContain("Config lives in ~/.globu (override with GLOBU_HOME).");

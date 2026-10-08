@@ -14,7 +14,7 @@ Sources: the [hooks reference](https://code.claude.com/docs/en/hooks), [permissi
 
 | Behaviour | Used by |
 |---|---|
-| Hook input arrives as JSON on stdin with `cwd` and, for tool events, `tool_input`. `Edit` and `Write` carry `file_path`, `NotebookEdit` carries `notebook_path` and `Bash` carries `command`. | both hooks, parsed in `packages/cli-common/src/run.ts` |
+| Hook input arrives as JSON on stdin with `cwd` and, for tool events, `tool_input`. `Edit` and `Write` carry `file_path`, `NotebookEdit` carries `notebook_path` and `Bash` carries `command`. | both hooks, parsed in `packages/globu-cli/src/cli/run.ts` |
 | `cwd` is the directory Claude is working in. In a worktree session it is the worktree root, and it moves when Claude runs `cd`. | the index and `list` use it to find the session's worktree |
 | `CLAUDE_PROJECT_DIR` is exported to the hook process and stays at the directory the session started in, also after `cd` and after entering a worktree. | the guard uses it as the session's home |
 | A PreToolUse hook that exits 2 blocks the tool call and Claude reads stderr as the reason. JSON on stdout cannot override it. | the guard, for `read` shards |

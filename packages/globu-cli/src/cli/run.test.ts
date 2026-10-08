@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { captureIo } from "../../testing/index.js";
+import { captureIo } from "../../../testing/index.js";
 import { command, type JsonOption, print, readHookInput, runCli } from "./run.js";
 
 const PROGRAM = { name: "tool", description: "A tool for tests.", version: "1.2.3" };

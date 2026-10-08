@@ -20,6 +20,17 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/node_modules/@mercastra/globu/dist/globu.mjs\" hook validate-edit"
+          }
+        ]
+      }
     ]
   }
 }

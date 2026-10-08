@@ -6,11 +6,8 @@ import { baseIndex, initRepo, read, tempDir, write } from "../packages/testing/i
 
 const root = path.join(import.meta.dirname, "..");
 const GLOBU = path.join(root, "packages/globu-cli/dist/globu.mjs");
-const KNOWLEDGE_BASE = path.join(root, "packages/knowledge-base-cli/dist/knowledge-base.mjs");
-const PLUGINS = [
-  { plugin: "plugins/globu", packageDir: "packages/globu-cli" },
-  { plugin: "plugins/knowledge-base", packageDir: "packages/knowledge-base-cli" }
-];
+const PLUGIN = "plugins/globu";
+const PACKAGE = "packages/globu-cli";
 
 type HooksFile = { hooks: Record<string, { hooks: { command: string }[] }[]> };
 
@@ -29,8 +26,8 @@ function hookCommands(plugin: string): string[] {
   );
 }
 
-describe("bundled CLIs", () => {
-  it("globu runs as a standalone executable and reads hook input from stdin", () => {
+describe("bundled CLI", () => {
+  it("runs as a standalone executable and reads hook input from stdin", () => {
     expect(runBundle(GLOBU, ["--version"]).stdout).toMatch(/^\d+\.\d+\.\d+\n$/);
 
     const repo = initRepo(path.join(tempDir(), "notes"), { "docs/index.md": baseIndex("notes") });
@@ -48,33 +45,33 @@ describe("bundled CLIs", () => {
     expect(runBundle(GLOBU, ["nope"]).status).toBe(1);
   });
 
-  it("knowledge-base runs as a standalone executable", () => {
+  it("manages knowledge bases and validates edits", () => {
     const repo = tempDir();
-    expect(runBundle(KNOWLEDGE_BASE, ["setup", repo, "--name", "demo"]).status).toBe(0);
+    expect(runBundle(GLOBU, ["base", "setup", repo, "--name", "demo"]).status).toBe(0);
     const bad = write(repo, "docs/bad.md", "bare\n");
-    const hook = runBundle(KNOWLEDGE_BASE, ["hook", "validate-edit"], { tool_input: { file_path: bad } });
+    const hook = runBundle(GLOBU, ["hook", "validate-edit"], { tool_input: { file_path: bad } });
     expect(hook.status).toBe(2);
     expect(hook.stderr).toContain("missing YAML frontmatter block");
   });
 });
 
-describe("published packages", () => {
-  it.each(PLUGINS)("$packageDir carries the root version and ships its bundle", ({ packageDir }) => {
-    const manifest = JSON.parse(read(root, packageDir, "package.json"));
+describe("published package", () => {
+  it("carries the root version and ships its bundle", () => {
+    const manifest = JSON.parse(read(root, PACKAGE, "package.json"));
     expect(manifest.version).toBe(JSON.parse(read(root, "package.json")).version);
     expect(manifest.files).toEqual(["dist"]);
     expect(manifest.license).toBe("MIT");
-    expect(read(root, packageDir, "LICENSE")).toBe(read(root, "LICENSE"));
+    expect(read(root, PACKAGE, "LICENSE")).toBe(read(root, "LICENSE"));
     for (const bin of Object.values<string>(manifest.bin)) {
-      expect(fs.existsSync(path.join(root, packageDir, bin))).toBe(true);
+      expect(fs.existsSync(path.join(root, PACKAGE, bin))).toBe(true);
     }
   });
 });
 
 describe("plugin hooks", () => {
-  it.each(PLUGINS)("$plugin hooks run the CLI from the installed package", ({ plugin, packageDir }) => {
-    const { name, bin } = JSON.parse(read(root, packageDir, "package.json"));
-    const commands = hookCommands(plugin);
+  it("run the CLI from the installed package", () => {
+    const { name, bin } = JSON.parse(read(root, PACKAGE, "package.json"));
+    const commands = hookCommands(PLUGIN);
     expect(commands.length).toBeGreaterThan(0);
     for (const command of commands) {
       for (const bundle of Object.values<string>(bin)) {
@@ -84,9 +81,11 @@ describe("plugin hooks", () => {
         shell: true,
         input: "{}",
         encoding: "utf8",
-        env: { ...process.env, CLAUDE_PLUGIN_ROOT: path.join(root, plugin) }
+        env: { ...process.env, CLAUDE_PLUGIN_ROOT: path.join(root, PLUGIN) }
       });
       expect(result.status).toBe(0);
     }
+    const { dependencies } = JSON.parse(read(root, PLUGIN, "package.json"));
+    expect(Object.keys(dependencies)).toEqual([name]);
   });
 });

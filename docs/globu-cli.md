@@ -1,18 +1,22 @@
 ---
 type: "Reference"
 title: "globu CLI"
-description: "Command reference for the globu CLI: registering shards, contexts, sync, diagnostics and the hook entry points."
+description: "Command reference for the globu CLI: knowledge bases, registering shards, contexts, sync, diagnostics and the hook entry points."
 ---
 
 # globu CLI
 
-Published as `@mercastra/globu` and built to `packages/globu-cli/dist/globu.mjs`. Source: `packages/globu-cli/src/globu.ts` on top of `packages/globu-core`. Add `--json` to any command. `--help` works on the program and on every command. The CLI never prompts.
+Published as `@mercastra/globu` and built to `packages/globu-cli/dist/globu.mjs`. Source: `packages/globu-cli/src/globu.ts` on top of `packages/globu-core`, with the `base` group in `packages/globu-cli/src/base.ts` on top of `packages/knowledge-base` and the commander runner in `packages/globu-cli/src/cli`. Add `--json` to any command. `--help` works on the program and on every command. The CLI never prompts.
 
 Environment:
 
 - `GLOBU_HOME`: config directory, default `~/.globu`.
 - `GLOBU_CONTEXT`: overrides the active context for one process.
 - `CLAUDE_CONFIG_DIR`: where `claude sync` finds `settings.json`, default `~/.claude`.
+
+## Knowledge bases
+
+The `base` group works on the repo the command runs in and needs no registered shard. See [knowledge bases](./knowledge-base.md) for the commands and the ownership rule.
 
 ## Shards
 
@@ -55,6 +59,7 @@ Behaviours worth knowing:
 | `index` | Print the text the session hook injects, for the directory it is run in. |
 | `claude sync [--remove]` | Add the active shards' paths to `permissions.additionalDirectories`, or remove the ones Globu added. Entries Globu did not add are never touched. |
 | `hook session-start` | SessionStart entry point. Prints the index, or nothing. |
+| `hook validate-edit` | PostToolUse entry point for `Edit` and `Write`. Validates the base that owns an edited Markdown file and exits 2 with the errors when it fails. |
 | `hook guard` | PreToolUse entry point for `Edit`, `Write`, `NotebookEdit` and `Bash`. Exit code 2 when the target is in a `read` shard. For an `ask` shard changed from a session in another repo it prints a PreToolUse `permissionDecision` of `ask` and exits 0. Targets are matched to shards by git repo, so linked worktrees count wherever they are. For `Bash` it reads `tool_input.command`: certain writes are treated like file edits, possible ones only prompt. See [architecture](./architecture.md) for the rules and their limits. |
 
 ## Diagnostics

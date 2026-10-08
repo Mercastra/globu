@@ -1,13 +1,13 @@
 ---
 okf_version: "0.2"
 name: globu
-description: Design, components and CLI reference of Globu and the knowledge-base plugin
+description: What Globu is for, how it works, the CLI reference and how to develop it
 knowledge_base_version: 0.1.0
 ---
 
 # globu knowledge base
 
-This directory is the knowledge base for Globu and the knowledge-base plugin. It is an OKF bundle and is maintained with the tools built in this repo.
+This directory is the public knowledge base for Globu: what it is for, how it works, the CLI reference and how to develop it. It is an OKF bundle and is maintained with the tools built in this repo. Design decisions and the roadmap are kept outside this repo.
 
 <!-- knowledge-base:authoring-guide:start -->
 ## Before you consider a task done
@@ -38,10 +38,10 @@ This is a plain [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/b
 
 ## Contents
 
-* [Architecture](./architecture.md) - the two products, the registry, probe, drivers and Claude Code integration
-* [knowledge-base plugin](./knowledge-base-plugin.md) - base discovery, ownership rule, commands, hook and skills
+* [Overview](./overview.md) - the problems Globu solves and a worked example
+* [Architecture](./architecture.md) - the plugin and its two CLIs, the registry, probe, drivers and Claude Code integration
+* [Knowledge bases](./knowledge-base.md) - base discovery, ownership rule, the base commands, the edit hook and the skills
 * [globu CLI](./globu-cli.md) - command reference
 * [Claude Code hook contract](./claude-code-hooks.md) - the hook behaviours the session and guard hooks rely on, and which are untested
 * [Development](./development.md) - tooling, quality gates, tests, CI and releasing
-* [Design decisions](./decisions.md) - what was decided and why, plus open questions
 * [Update log](./log.md) - chronological history of changes to this base

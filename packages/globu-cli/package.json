@@ -1,7 +1,7 @@
 {
   "name": "@mercastra/globu",
   "version": "0.2.0",
-  "description": "Registry of knowledge shards for Claude Code",
+  "description": "Knowledge bases inside a repo and a registry of knowledge shards for Claude Code",
   "author": "Mercastra",
   "license": "MIT",
   "type": "module",

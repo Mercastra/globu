@@ -10,8 +10,7 @@
     "node": ">=26"
   },
   "bin": {
-    "globu": "packages/globu-cli/dist/globu.mjs",
-    "knowledge-base": "packages/knowledge-base-cli/dist/knowledge-base.mjs"
+    "globu": "packages/globu-cli/dist/globu.mjs"
   },
   "scripts": {
     "build": "node scripts/build.ts",

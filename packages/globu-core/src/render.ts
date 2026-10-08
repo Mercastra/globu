@@ -66,7 +66,7 @@ export function renderIndex(shards: ResolvedShard[], context: string | null, cwd
   lines.push(
     "",
     "## Writing",
-    `Only edit shards marked writable.${askFirst} Never copy knowledge from one shard into another unless the user names the target shard. To record what a session learned, use the \`globu:save-knowledge\` skill.`
+    `Only edit shards marked writable.${askFirst} Never copy knowledge from one shard into another unless the user names the target shard. To record what a session learned, use the \`globu:update-knowledge\` skill.`
   );
   if (missing.length > 0) {
     lines.push("", `Not available locally (run \`globu sync\`): ${missing.map((shard) => shard.id).join(", ")}`);

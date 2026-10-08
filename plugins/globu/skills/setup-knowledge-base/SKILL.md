@@ -1,5 +1,5 @@
 ---
-name: setup
+name: setup-knowledge-base
 description: Bootstrap or upgrade an OKF knowledge base (a docs/ directory) in a repo or in one module of a repo. Use when the user asks to set up, initialize or upgrade a knowledge base, or to add a docs/ base to a package. Idempotent, safe to re-run.
 ---
 
@@ -9,10 +9,10 @@ An OKF base is a `docs/` directory with an `index.md` that carries `okf_version`
 
 ## Command
 
-The CLI is installed with this plugin at `node_modules/@mercastra/knowledge-base/dist/knowledge-base.mjs` in the plugin root (two directories above this file).
+The CLI is installed with this plugin at `node_modules/@mercastra/globu/dist/globu.mjs` in the plugin root (two directories above this file).
 
 ```bash
-node <plugin-root>/node_modules/@mercastra/knowledge-base/dist/knowledge-base.mjs setup [target] [--name <name>] [--description "<one sentence>"]
+node <plugin-root>/node_modules/@mercastra/globu/dist/globu.mjs base setup [target] [--name <name>] [--description "<one sentence>"]
 ```
 
 - `target` defaults to the current directory. Pass the directory that should contain `docs/`, or a `docs/` path itself.

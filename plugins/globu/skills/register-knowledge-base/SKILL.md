@@ -1,6 +1,6 @@
 ---
-name: register
-description: Register a knowledge shard with Globu so Claude can find it in every session. Use when the user wants to add, register or import a repo, folder or knowledge base into Globu, or says "globu register".
+name: register-knowledge-base
+description: Register a knowledge shard with Globu so Claude can find it in every session. Use when the user wants to add, register or import a repo, folder or knowledge base into Globu, or says "register knowledge base".
 ---
 
 # Register a shard

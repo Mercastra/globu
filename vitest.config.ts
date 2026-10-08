@@ -11,7 +11,7 @@ export default defineConfig({
         "packages/**/*.test.ts",
         "packages/testing/**",
         "packages/*/src/bin/**",
-        "packages/cli-common/src/process-io.ts"
+        "packages/globu-cli/src/cli/process-io.ts"
       ],
       thresholds: {
         statements: 100,

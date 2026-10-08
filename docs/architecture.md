@@ -1,19 +1,19 @@
 ---
 type: "Architecture"
 title: "Globu architecture"
-description: "The two products in this repo, how they relate and how Globu's registry, probe, drivers and Claude Code integration fit together."
+description: "The plugin and CLI in this repo, their two halves and how Globu's registry, probe, drivers and Claude Code integration fit together."
 ---
 
 # Globu architecture
 
-Globu plugs into Claude Code so Claude can find the right knowledge for a task and write new knowledge back after a session. This repo ships two products that install separately.
+Globu plugs into Claude Code so Claude can find the right knowledge for a task and write new knowledge back after a session. This repo ships one Claude Code plugin, `globu`, and one CLI of the same name, with two halves.
 
-| Product | Scope | Needs the other? |
+| Half | Scope | Needs the other? |
 |---|---|---|
-| `knowledge-base` plugin | One repo, any number of OKF `docs/` bases inside it | No |
-| `globu` plugin and CLI | The per-user layer: which knowledge sources exist for me, when to consult them and where writes may go | No |
+| Knowledge bases (`globu base`, the edit hook) | One repo, any number of OKF `docs/` bases inside it | No |
+| Registry (every other command and hook) | The per-user layer: which knowledge sources exist for me, when to consult them and where writes may go | Yes, through the OKF library |
 
-The dependency runs one way. Globu knows about OKF bases through its `okf` driver. `knowledge-base` knows nothing about Globu. Both use the shared OKF library in `packages/knowledge-base`.
+The dependency runs one way. The registry knows about OKF bases through its `okf` driver. The OKF library in `packages/knowledge-base` knows nothing about the registry, so the single-repo half works with no shard registered.
 
 ## Vocabulary
 
@@ -124,7 +124,8 @@ All of it comes from the `globu` plugin, which should be enabled at user scope.
 - **SessionStart hook** runs `globu hook session-start`. It prints the active context's index (id, location, routing text, entry files, format conventions) and Claude Code adds that to the session. Location and entry files come from `workPath`, so a session in a worktree is pointed at that worktree and told to leave the main checkout alone. It prints nothing when no shards are registered. It reads local files and runs `git rev-parse`.
 - **PreToolUse guard** runs `globu hook guard` before `Edit`, `Write`, `NotebookEdit` and `Bash`. It finds the shard by the repo the target belongs to, so a file in any worktree maps to its shard. For a `read` shard it blocks the edit with exit code 2. For an `ask` shard it returns the PreToolUse permission decision `ask`, which makes Claude Code prompt the user, unless the session's home is that shard's repo. Home is the repo of `CLAUDE_PROJECT_DIR`, the directory the session started in. The hook's `cwd` is only the fallback because it follows `cd`, and a session must not become exempt by changing into a sibling repo. Shell commands are read as described below.
 - **`globu claude sync`** writes the active shards' paths into `permissions.additionalDirectories` in the user's Claude settings so reads need no prompt. It records which entries it added and only ever changes those. It is an explicit command and nothing calls it implicitly.
-- **Skills**: `register` and `save-knowledge`.
+- **PostToolUse edit hook** runs `globu hook validate-edit` after `Edit` and `Write` and validates the base an edited Markdown file belongs to. See [knowledge bases](./knowledge-base.md).
+- **Skills**: `setup-knowledge-base`, `register-knowledge-base` and `update-knowledge`.
 
 The repo a session runs in needs nothing. The hooks read `~/.globu` only.
 
@@ -156,7 +157,7 @@ The Claude Code behaviours all of this depends on are listed in the [hook contra
 
 ## Writing knowledge back
 
-`save-knowledge` names a target shard for every item, checks the mode and then writes using the shard's format. It writes under `workPath`, so knowledge saved from a worktree lands on that worktree's branch. For `okf` shards it hands the target base directories to `knowledge-base:update-knowledge` when that plugin is installed. Otherwise it follows the authoring guide embedded in the base's `index.md`. Edits are left in the working tree.
+`update-knowledge` names a target for every item, checks the mode and then writes using the target's format. Knowledge about the current repo's code goes to the nearest base walking up from that code, found with `globu base list` and `base owner`, whether or not the repo is a shard. Everything else is matched against the registered shards' routing text. A shard is written under `workPath`, so knowledge written from a worktree lands on that worktree's branch. For `okf` targets the skill follows the authoring guide embedded in the base's `index.md`, logs the change with `globu base log` and validates. Edits are left in the working tree.
 
 Rules that hold everywhere:
 
@@ -167,28 +168,25 @@ Rules that hold everywhere:
 ## Repository layout
 
 ```
-packages/knowledge-base      shared OKF library: frontmatter, scan, validate, setup, log
-packages/knowledge-base-cli  the knowledge-base program, published as @mercastra/knowledge-base
+packages/knowledge-base      OKF library: frontmatter, scan, validate, setup, log
 packages/globu-core          manifest, state, resolver, session view, probe, drivers, contexts, Claude settings
-packages/globu-cli           the globu program, published as @mercastra/globu
-packages/cli-common          what both programs share: Io, the commander runner, hook input
+packages/globu-cli           the globu program, published as @mercastra/globu: the base group, the registry commands, the hooks and the commander runner
 packages/testing             test helpers
-plugins/knowledge-base       standalone plugin: skills, edit hook, pinned dependency on its CLI
-plugins/globu                registry plugin: skills, session and guard hooks, pinned dependency on its CLI
+plugins/globu                the plugin: skills, session, guard and edit hooks, pinned dependency on the CLI
 scripts/                     build and pin
 tests/                       checks that run the built bundles and the plugin hooks
 ```
 
-`packages/knowledge-base` and `packages/knowledge-base-cli` must never import from `packages/globu-core`. `packages/cli-common` knows nothing about shards or bases.
+`packages/knowledge-base` must never import from `packages/globu-core`, and `packages/globu-cli/src/base.ts` imports only the OKF library and the runner.
 
 ## Distribution
 
-Each CLI is bundled into a single file with no runtime dependencies and published to npm. Nothing compiled is kept in git.
+The CLI is bundled into a single file with no runtime dependencies and published to npm as `@mercastra/globu`. Nothing compiled is kept in git.
 
-A plugin is a source-only directory: skills, hooks, `plugin.json` and a `package.json` with a `package-lock.json` that pin its CLI to one exact version. Claude Code copies the plugin into its cache on install and then installs that one dependency, so hooks and skills run the CLI from `node_modules/@mercastra/<name>/dist` inside the plugin root.
+The plugin is a source-only directory: skills, hooks, `plugin.json` and a `package.json` with a `package-lock.json` that pin the CLI to one exact version. Claude Code copies the plugin into its cache on install and then installs that one dependency, so hooks and skills run the CLI from `node_modules/@mercastra/globu/dist` inside the plugin root.
 
-The marketplace is this repo. Its entries point at the plugin directories on the `stable` branch, which only the release moves. `main` can therefore hold skills that are ahead of the published CLI without anyone installing that mix.
+The marketplace is this repo. Its entry points at the plugin directory on the `stable` branch, which only the release moves. `main` can therefore hold skills that are ahead of the published CLI without anyone installing that mix.
 
-Locally, `npm run build` links each package into its plugin's `node_modules`, so `claude --plugin-dir` runs the working tree.
+Locally, `npm run build` links the package into the plugin's `node_modules`, so `claude --plugin-dir` runs the working tree.
 
 See [development](./development.md) for tooling and quality gates.
