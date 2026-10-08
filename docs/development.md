@@ -30,6 +30,7 @@ A linked git worktree, such as the ones Claude Code sessions run in under `.clau
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run build` | bundle the CLI into `packages/globu-cli/dist` and link it into the plugin |
 | `npm run pin` | pack the CLI into `release/` and pin the plugin to that tarball |
+| `npm run verify:mod` | validate and test the globu-status mod with `claude plugin validate` and `claude plugin test` |
 | `npm test` | run the tests once |
 | `npm run test:watch` | run the tests in watch mode |
 | `npm run test:coverage` | run the tests with the coverage gate |
@@ -64,9 +65,13 @@ A comment is allowed only when it is critical, meaning a reader would misread or
 - A command sets a non-zero exit code through the `exit` callback it is given. A thrown error becomes `<name>: <message>` on the error output and exit code 1. Usage errors are reported by commander, also with exit code 1.
 - Manifest, state and hook input are parsed with zod schemas. A hand-edited file fails with one clear message at load time, and the rest of the code works with known shapes and needs no defensive checks.
 
+## The mod
+
+`mods/globu-status` is a Claude Code mod: a plugin of function hooks, written against the engine's own TypeScript API. It has no build. `claude plugin validate` reads it the way the engine will and `claude plugin test` runs its `tests/*.test.ts` against the engine, so both need the `claude` binary; `npm run verify:mod` runs them, the pre-commit hook runs it after `npm run verify`, and CI installs Claude Code for that step. When a session loads the mod from the working tree, the engine writes `.claude-plugin/types/` and a `tsconfig.json` beside it; both are ignored by git, and `tsc -p mods/globu-status` type-checks the mod once they exist. Biome formats and lints the mod like the rest of the repo.
+
 ## Continuous integration
 
-`.github/workflows/verify.yml` runs on pull requests and on pushes to `main`: install, `npm run verify`, then a check that the committed package version matches the root version.
+`.github/workflows/verify.yml` runs on pull requests and on pushes to `main`: install, `npm run verify`, a check that the committed package version matches the root version, then `npm run verify:mod` with Claude Code installed on the runner.
 
 ## Working on the plugin locally
 
@@ -74,7 +79,7 @@ A comment is allowed only when it is critical, meaning a reader would misread or
 
 ```bash
 npm run build
-claude --plugin-dir ./plugins/globu
+claude --plugin-dir ./plugins/globu --plugin-dir ./mods/globu-status
 ```
 
 ## Releasing

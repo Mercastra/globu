@@ -1,6 +1,6 @@
 {
   "name": "globu",
-  "description": "Globu: OKF knowledge bases and a per-user knowledge registry for Claude Code",
+  "description": "Globu: OKF knowledge bases, a per-user knowledge registry and a session status mod for Claude Code",
   "owner": {
     "name": "Mercastra"
   },
@@ -14,6 +14,16 @@
         "ref": "stable"
       },
       "description": "Keep OKF knowledge bases (docs/ directories) inside a repo, register knowledge shards across repos, tell Claude which knowledge exists and where it may write, and update it with what a session learned"
+    },
+    {
+      "name": "globu-status",
+      "source": {
+        "source": "git-subdir",
+        "url": "Mercastra/globu",
+        "path": "mods/globu-status",
+        "ref": "stable"
+      },
+      "description": "Status line and band showing how much the session has done since its knowledge was last updated, with one-press update"
     }
   ]
 }
