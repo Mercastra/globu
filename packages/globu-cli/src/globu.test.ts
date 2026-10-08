@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
+import YAML from "yaml";
 import { claudeSettingsPath, manifestPath, statePath } from "../../globu-core/src/index.js";
 import { addWorktree, baseIndex, captureIo, initRepo, read, tempDir, write } from "../../testing/index.js";
 import { globuMain } from "./globu.js";
@@ -154,6 +155,55 @@ describe("globu set, reprobe, unregister and sync", () => {
     expect(failed.code).toBe(1);
     expect(failed.out).toMatch(/^error\thandbook\tgit pull --ff-only failed/);
     expect(run(["unregister", "handbook", "--purge"]).out).toBe("unregistered handbook, clone removed\n");
+  });
+});
+
+describe("globu import", () => {
+  it("previews, applies and refreshes a team manifest", () => {
+    const url = remoteRepo("notes");
+    const teamDir = path.join(sandbox, "team");
+    const shard = {
+      id: "notes",
+      source: { type: "git", repo: url },
+      format: "generic",
+      roots: [{ path: ".", entry: "README.md" }],
+      description: "Notes",
+      useWhen: "Notes questions"
+    };
+    write(teamDir, ".globu/manifest.yaml", YAML.stringify({ shards: [shard], contexts: { team: ["notes"] } }));
+    const plan = [teamDir, "  added:    notes", "  updated:  -", "  contexts: team", "active context: team"];
+
+    expect(run(["import", "team", "--context", "team"])).toEqual({
+      code: 0,
+      err: "",
+      out: [...plan, "nothing written, run again with --yes to apply", ""].join("\n")
+    });
+    expect(run(["list"]).out).toBe("no shards registered\n");
+    expect(json(["import", "team"])).toMatchObject({ applied: false, context: null, plans: [{ file: null }] });
+
+    expect(run(["import", "team", "--context", "team", "--yes"]).out).toBe(
+      [...plan, `written to ${manifestPath()}`, "next: `globu sync` clones the new shards", ""].join("\n")
+    );
+    expect(run(["list"]).out).toBe("context: team\nnotes\tgeneric\tread\t(not synced)\n");
+    expect(run(["sync"]).out).toBe("cloned\tnotes\n");
+    expect(run(["import", "--yes"]).out).toBe(
+      [teamDir, "  added:    -", "  updated:  -", "  contexts: team", `written to ${manifestPath()}`, ""].join("\n")
+    );
+    expect(run(["import", "team", "--file", ".globu/manifest.yaml"]).out).toMatch(
+      /^.*team \(\.globu\/manifest\.yaml\)\n/
+    );
+
+    write(teamDir, ".globu/manifest.yaml", YAML.stringify({ shards: [{ ...shard, description: "Team notes" }] }));
+    expect(run(["import", "--yes"]).out).toBe(
+      [teamDir, "  added:    -", "  updated:  notes", "  contexts: -", `written to ${manifestPath()}`, ""].join("\n")
+    );
+    expect(run(["show", "notes"]).out).toContain("description: Team notes\n");
+  });
+
+  it("rejects bad arguments", () => {
+    expect(run(["import", "--file", "x.yaml"]).err).toBe("globu: --file needs a path or a repo URL to read it from\n");
+    expect(run(["import"]).err).toBe("globu: nothing to import: give a path or a repo URL\n");
+    expect(run(["import", "missing.yaml"])).toMatchObject({ code: 1, err: expect.stringMatching(/no manifest at/) });
   });
 });
 

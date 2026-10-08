@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { Worker } from "node:worker_threads";
 
 export function tempDir(): string {
   return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "globu-test-")));
@@ -79,4 +80,21 @@ export function captureIo(cwd: string, input: unknown = ""): CapturedIo {
     stdin: () => (typeof input === "string" ? input : JSON.stringify(input))
   };
   return io;
+}
+
+export type GitServer = { url: (repo: string) => string; requests: () => string[]; close: () => Promise<number> };
+
+export function serveGit(root: string, authorization: string | null): Promise<GitServer> {
+  const log = path.join(tempDir(), "requests.log");
+  fs.writeFileSync(log, "");
+  const worker = new Worker(new URL("./git-server.ts", import.meta.url), { workerData: { root, authorization, log } });
+  return new Promise((resolve) => {
+    worker.once("message", (port: number) => {
+      resolve({
+        url: (repo) => `http://127.0.0.1:${port}/${repo}`,
+        requests: () => fs.readFileSync(log, "utf8").split("\n").filter(Boolean),
+        close: () => worker.terminate()
+      });
+    });
+  });
 }

@@ -1,7 +1,15 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { tempDir } from "../../testing/index.js";
 import { claudeSettingsPath, clonesDir, globuHome, manifestPath, statePath } from "./paths.js";
+
+const HOME = process.env.HOME;
+
+afterEach(() => {
+  process.env.HOME = HOME;
+});
 
 describe("paths", () => {
   it("default to the home directory", () => {
@@ -18,5 +26,23 @@ describe("paths", () => {
     expect(statePath()).toBe("/tmp/custom-globu/state.yaml");
     expect(clonesDir()).toBe("/tmp/custom-globu/clones");
     expect(claudeSettingsPath()).toBe("/tmp/custom-claude/settings.json");
+  });
+
+  it("fall back to the temp directory when the home directory is not writable", () => {
+    delete process.env.GLOBU_HOME;
+    const home = tempDir();
+    process.env.HOME = home;
+    expect(globuHome()).toBe(path.join(home, ".globu"));
+
+    fs.chmodSync(home, 0o500);
+    try {
+      expect(globuHome()).toBe(path.join(os.tmpdir(), "globu"));
+      fs.chmodSync(home, 0o700);
+      fs.mkdirSync(path.join(home, ".globu"));
+      fs.chmodSync(home, 0o500);
+      expect(globuHome()).toBe(path.join(home, ".globu"));
+    } finally {
+      fs.chmodSync(home, 0o700);
+    }
   });
 });

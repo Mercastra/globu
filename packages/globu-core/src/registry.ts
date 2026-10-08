@@ -218,7 +218,7 @@ function syncShard(shard: ResolvedShard, state: State): SyncEntry["action"] {
   }
   if (shard.owner === "globu") {
     if (ensureManagedClone(repo as string, shard.path)) return "cloned";
-    pull(shard.path);
+    pull(shard.path, repo);
     return "pulled";
   }
   if (!shard.present) throw new Error(`clone is missing at ${shard.path}, register it again with --path`);

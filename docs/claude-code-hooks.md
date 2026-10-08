@@ -6,7 +6,7 @@ description: "The Claude Code hook behaviours Globu's session and guard hooks re
 
 # Claude Code hook contract
 
-Globu's two hooks depend on how Claude Code runs hooks. This page lists what they rely on, so a change in Claude Code can be checked against one place. Everything under "Relied on" was read in the Claude Code docs on 2026-10-05. Nothing here was tested against a live permission prompt.
+Globu's two hooks depend on how Claude Code runs hooks. This page lists what they rely on, so a change in Claude Code can be checked against one place. Everything under "Relied on" was read in the Claude Code docs on 2026-10-05. Nothing here was tested against a live permission prompt. The deny path and `--plugin-dir` were tried in a `claude -p` run on 2026-10-08: the guard refused a write into a `read` shard with exit code 2 and Claude reported the reason.
 
 Sources: the [hooks reference](https://code.claude.com/docs/en/hooks), [permissions](https://code.claude.com/docs/en/permissions), [permission modes](https://code.claude.com/docs/en/permission-modes), [headless mode](https://code.claude.com/docs/en/headless) and [worktrees](https://code.claude.com/docs/en/worktrees).
 
@@ -23,6 +23,7 @@ Sources: the [hooks reference](https://code.claude.com/docs/en/hooks), [permissi
 | A hook's `ask` also forces the prompt in auto mode. In a `-p` run with nobody to answer, the call is denied and Claude reads the reason. | `ask` shards stay protected in unattended runs |
 | `acceptEdits` approves edits inside the working directory and inside `permissions.additionalDirectories` without a prompt. | this is why `ask` exists: after `globu claude sync` a sibling shard would otherwise be edited silently |
 | Top-level `decision` and `reason` are deprecated for PreToolUse. | the guard prints `hookSpecificOutput` only |
+| `--plugin-dir` loads a plugin with its hooks in a `-p` run, and the hooks inherit the environment of the `claude` process. Tested on 2026-10-08. | the bootstrap for unattended runs, which sets `GLOBU_HOME` for the job |
 
 ## Not settled
 
