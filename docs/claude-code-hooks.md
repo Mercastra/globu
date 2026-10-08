@@ -6,7 +6,7 @@ description: "The Claude Code hook behaviours Globu's session and guard hooks re
 
 # Claude Code hook contract
 
-Globu's two hooks depend on how Claude Code runs hooks. This page lists what they rely on, so a change in Claude Code can be checked against one place. Everything under "Relied on" was read in the Claude Code docs on 2026-10-05. Nothing here was tested against a live permission prompt. The deny path was tested in a `claude -p` run on 2026-10-08, see [unattended runs](./unattended-runs.md).
+Globu's two hooks depend on how Claude Code runs hooks. This page lists what they rely on, so a change in Claude Code can be checked against one place. Everything under "Relied on" was read in the Claude Code docs on 2026-10-05. Nothing here was tested against a live permission prompt. The deny path and `--plugin-dir` were tried in a `claude -p` run on 2026-10-08: the guard refused a write into a `read` shard with exit code 2 and Claude reported the reason.
 
 Sources: the [hooks reference](https://code.claude.com/docs/en/hooks), [permissions](https://code.claude.com/docs/en/permissions), [permission modes](https://code.claude.com/docs/en/permission-modes), [headless mode](https://code.claude.com/docs/en/headless) and [worktrees](https://code.claude.com/docs/en/worktrees).
 

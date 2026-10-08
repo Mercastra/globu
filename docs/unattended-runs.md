@@ -132,9 +132,3 @@ What each line of the bootstrap does:
 4. `claude sync` adds the clone paths to `permissions.additionalDirectories` in the runner's `~/.claude/settings.json`, so Claude reads them without a permission prompt. The action keeps that file and merges its own `settings` input over it, so do not pass `permissions` in that input or the entry is replaced.
 
 `GLOBU_HOME` is set at job level so the hooks that Claude Code starts see it too. The same four commands work before `claude -p` on any machine.
-
-## What was checked
-
-`tests/bundle.test.ts` runs the bootstrap end to end against the built CLI: import from a repo, sync, the index for the context, `claude sync` and the guard denying a file write and a shell redirect into a `read` shard. The token path runs in `packages/globu-core/src/import.test.ts` against a local git server that requires the header.
-
-On 2026-10-08 the same bootstrap was run by hand into an empty `GLOBU_HOME`, followed by `claude -p --plugin-dir plugins/globu --permission-mode acceptEdits` with a prompt asking Claude to write a file into the read-only clone. The guard denied the `Write` call with exit code 2, the file was not created and Claude reported the Globu reason. The plugin's hooks therefore work from `--plugin-dir` in print mode, which the [hook contract](./claude-code-hooks.md) lists as relied on.
