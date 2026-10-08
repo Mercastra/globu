@@ -18,18 +18,26 @@ const ShardSchema = z.object({
   access: z.literal("read").optional()
 });
 
+const ImportSchema = z.object({ source: z.string().min(1), file: z.string().optional() });
+
 const ManifestSchema = z.object({
   version: z.number().default(1),
   shards: z.array(ShardSchema).default([]),
-  contexts: z.record(z.string(), z.array(z.string()).min(1)).default({})
+  contexts: z.record(z.string(), z.array(z.string()).min(1)).default({}),
+  imports: z.array(ImportSchema).default([])
 });
 
 export type Root = z.infer<typeof RootSchema>;
 export type Shard = z.infer<typeof ShardSchema>;
+export type ManifestImport = z.infer<typeof ImportSchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
 
 export function loadManifest(): Manifest {
   return readConfig(manifestPath(), ManifestSchema);
+}
+
+export function readManifestFile(filePath: string): Manifest {
+  return readConfig(filePath, ManifestSchema);
 }
 
 export function saveManifest(manifest: Manifest): void {

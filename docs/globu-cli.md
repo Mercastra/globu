@@ -10,8 +10,9 @@ Published as `@mercastra/globu` and built to `packages/globu-cli/dist/globu.mjs`
 
 Environment:
 
-- `GLOBU_HOME`: config directory, default `~/.globu`.
+- `GLOBU_HOME`: config directory, default `~/.globu`. When the home directory is not writable the default is `globu` under the system temp directory.
 - `GLOBU_CONTEXT`: overrides the active context for one process.
+- `GLOBU_GIT_TOKEN`: makes the clones Globu makes and the pulls of clones it owns go over https with this token. `GLOBU_GIT_USER` sets the user name sent with it, default `x-access-token`. See [unattended runs](./unattended-runs.md).
 - `CLAUDE_CONFIG_DIR`: where `claude sync` finds `settings.json`, default `~/.claude`.
 
 ## Knowledge bases
@@ -30,7 +31,7 @@ The `base` group works on the repo the command runs in and needs no registered s
 | `show <id>` | Everything known about one shard. |
 | `set <id> [--description] [--use-when] [--mode] [--access]` | Edit routing text, local mode or the manifest's access cap. |
 | `reprobe <id>` | Detect format and roots again and update the manifest. |
-| `sync` | Clone shards missing on this machine, pull globu-owned clones, fetch user-owned ones. |
+| `sync` | Clone shards missing on this machine, pull globu-owned clones, fetch user-owned ones. With `GLOBU_GIT_TOKEN` set the clones and pulls go over https with that token. |
 
 Other `register` flags: `--id`, `--description`, `--use-when`.
 
@@ -41,6 +42,16 @@ Behaviours worth knowing:
 - A repo with no `origin` remote can be registered, but its manifest entry has no URL and other machines cannot sync it.
 - `--mode` takes `read`, `ask` or `write`. `ask` lets sessions inside the shard's repo edit it and makes every other session prompt first. `--access` takes `read` or `write`.
 - `--mode write` and `--mode ask` are refused for a globu-owned clone. Register the URL again with `--path` to get an editable clone.
+
+## Team manifests
+
+| Command | Purpose |
+|---|---|
+| `import [locator]` | Merge a team manifest into this machine's manifest. The locator is a manifest file, a directory holding `.globu/manifest.yaml` or a git URL of a repo holding it. Without `--yes` it only prints what would be added, updated and defined. With no locator it refreshes every import recorded earlier. |
+
+Flags: `--file <path>` names the manifest inside the repo or directory, `--context <name>` makes that context active once the import is written, `--yes` writes.
+
+Ids are global: a team shard whose id or repo is already registered under something else is an error and nothing is written. A team shard that matches a local one by id and repo updates its manifest entry and leaves the clone, mode and path alone. The import is one level deep. New shards have no clone until `globu sync` runs. The reasoning and a CI example are in [unattended runs](./unattended-runs.md).
 
 ## Contexts
 

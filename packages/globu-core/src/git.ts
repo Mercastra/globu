@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import { gitAuthArgs } from "./auth.js";
 
 export type Checkout = { root: string; commonDir: string };
 
@@ -48,11 +49,11 @@ export function originUrl(dir: string): string | null {
 }
 
 export function clone(repoUrl: string, destDir: string, shallow: boolean): void {
-  git(["clone", ...(shallow ? ["--depth", "1"] : []), repoUrl, destDir]);
+  git([...gitAuthArgs(repoUrl), "clone", ...(shallow ? ["--depth", "1"] : []), repoUrl, destDir]);
 }
 
-export function pull(dir: string): void {
-  git(["pull", "--ff-only"], dir);
+export function pull(dir: string, repoUrl: string | null): void {
+  git([...gitAuthArgs(repoUrl), "pull", "--ff-only"], dir);
 }
 
 export function fetch(dir: string): void {

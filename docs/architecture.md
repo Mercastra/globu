@@ -26,9 +26,9 @@ The dependency runs one way. The registry knows about OKF bases through its `okf
 
 ## Configuration
 
-Everything lives in `~/.globu` (override with `GLOBU_HOME`).
+Everything lives in `~/.globu` (override with `GLOBU_HOME`; when the home directory is not writable the default moves to `globu` under the system temp directory).
 
-`manifest.yaml` is portable. It can be kept in a dotfiles repo and symlinked.
+`manifest.yaml` is portable. It can be kept in a dotfiles repo and symlinked, and a team can keep one in a shared repo for `globu import` to merge from.
 
 ```yaml
 version: 1
@@ -43,7 +43,11 @@ shards:
     access: read
 contexts:
   work: [product, team-*]
+imports:
+  - source: git@github.com:acme/product.git
 ```
+
+`imports` records the team manifests merged in with `globu import`, so a later bare `globu import --yes` refreshes them. The merge copies shards and contexts into this file: nothing is resolved at session time, and the team repo is only read when `import` runs.
 
 `state.yaml` is per machine and never shared.
 
@@ -66,6 +70,8 @@ The rule that separates them: anything true on every machine goes in the manifes
 | Location | `~/.globu/clones/<id>` | a path the user chose, or an existing clone adopted in place |
 | Clone | shallow | full |
 | `globu sync` | fast-forward pull | fetch only, never resets or switches branch |
+
+With `GLOBU_GIT_TOKEN` set, the clone and the pull go over https with the token sent as a header scoped to the repo's host, and an ssh URL is rewritten to https for that git call only. The manifest and the clone's origin keep the URL as written. The fetch of an editable clone uses whatever credentials that clone already has.
 
 A shard's effective mode is the stricter of two settings: the manifest's optional `access: read` cap and the local `mode` in state. The local mode has three values:
 
@@ -128,6 +134,10 @@ All of it comes from the `globu` plugin, which should be enabled at user scope.
 - **Skills**: `setup-knowledge-base`, `register-knowledge-base` and `update-knowledge`.
 
 The repo a session runs in needs nothing. The hooks read `~/.globu` only.
+
+## Unattended runs
+
+A GitHub Actions job, a cloud session or a fresh machine starts with no `~/.globu`, no clones and no plugin. [Unattended runs](./unattended-runs.md) describes the bootstrap that recreates them before Claude starts: `globu import` of a team manifest, `register` of the job's checkout, `sync` with a token from the environment and `claude sync`, with the plugin installed through the action's marketplace inputs or loaded with `--plugin-dir`. After it the hooks behave as they do on a laptop.
 
 ## Shell commands in the guard
 

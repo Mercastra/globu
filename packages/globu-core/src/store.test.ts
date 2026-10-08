@@ -12,7 +12,7 @@ function writeRaw(filePath: string, content: string): void {
 
 describe("manifest and state files", () => {
   it("start empty when the files do not exist", () => {
-    expect(loadManifest()).toEqual({ version: 1, shards: [], contexts: {} });
+    expect(loadManifest()).toEqual({ version: 1, shards: [], contexts: {}, imports: [] });
     expect(loadState()).toEqual({ version: 1, current: null, shards: {}, claude: { directories: [] } });
     expect(fs.existsSync(globuHome())).toBe(false);
   });
@@ -35,7 +35,8 @@ describe("manifest and state files", () => {
           useWhen: ""
         }
       ],
-      contexts: { work: ["a"] }
+      contexts: { work: ["a"] },
+      imports: []
     });
     saveState({
       version: 1,

@@ -3,8 +3,12 @@ import { Option } from "commander";
 import {
   type Access,
   commandTargets,
+  DEFAULT_IMPORT_FILE,
   doctor,
   guardVerdict,
+  type ImportPlan,
+  type ImportResult,
+  importManifests,
   locate,
   type Mode,
   type ResolvedShard,
@@ -35,7 +39,8 @@ const PROGRAM = {
 };
 
 const FOOTER = `
-Config lives in ~/.globu (override with GLOBU_HOME). GLOBU_CONTEXT overrides the active context for one process.`;
+Config lives in ~/.globu (override with GLOBU_HOME). GLOBU_CONTEXT overrides the active context for one process.
+GLOBU_GIT_TOKEN makes the clones globu makes and pulls go over https with that token.`;
 
 const MODES: Mode[] = ["read", "ask", "write"];
 const ACCESS: Access[] = ["read", "write"];
@@ -80,6 +85,27 @@ function guardReason({ decision, shard, target }: Verdict, viaCommand: boolean):
     return `globu: ${subject} is read-only on this machine. Approve only if the command does not modify it.`;
   }
   return `globu: ${subject} asks before edits from sessions in other repos. Approve only if you want this session to change it.`;
+}
+
+function importPlanLines(plan: ImportPlan): string[] {
+  return [
+    `${plan.source}${plan.file === null ? "" : ` (${plan.file})`}`,
+    `  added:    ${plan.added.join(", ") || "-"}`,
+    `  updated:  ${plan.updated.join(", ") || "-"}`,
+    `  contexts: ${plan.contexts.join(", ") || "-"}`
+  ];
+}
+
+function importText(result: ImportResult): string {
+  const lines = result.plans.flatMap(importPlanLines);
+  if (result.context !== null) lines.push(`active context: ${result.context}`);
+  if (!result.applied) {
+    lines.push("nothing written, run again with --yes to apply");
+  } else {
+    lines.push(`written to ${result.manifestPath}`);
+    if (result.plans.some((plan) => plan.added.length > 0)) lines.push("next: `globu sync` clones the new shards");
+  }
+  return lines.join("\n");
 }
 
 const UNREGISTER_SUFFIX = { none: "", kept: ", clone left in place", removed: ", clone removed" };
@@ -182,6 +208,23 @@ export function globuMain(argv: string[], io: Io): number {
         print(io, options.json, report, lines.join("\n") || "no shards registered");
         if (report.some((entry) => entry.action === "error")) exit(1);
       });
+
+      command(program, "import [locator]", "merge a team manifest into this machine's manifest")
+        .option("--file <path>", `the manifest inside a repo or directory, default ${DEFAULT_IMPORT_FILE}`)
+        .option("--context <name>", "make this context active once the import is written")
+        .option("--yes", "write the merged manifest; without it the command only shows what would change")
+        .action(
+          (locator: string | undefined, options: JsonOption & { file?: string; context?: string; yes?: boolean }) => {
+            const result = importManifests({
+              locator,
+              file: options.file,
+              context: options.context,
+              apply: options.yes === true,
+              cwd: io.cwd
+            });
+            print(io, options.json, result, importText(result));
+          }
+        );
 
       command(program, "use [context]", "make a context active for new sessions")
         .option("--all", "clear the active context so every shard is active")

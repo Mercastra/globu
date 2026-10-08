@@ -397,7 +397,8 @@ describe("resolveAll", () => {
           useWhen: ""
         }
       ],
-      contexts: {}
+      contexts: {},
+      imports: []
     });
     expect(resolveAll().shards[0]).toMatchObject({ path: null, owner: null, mode: "read", present: false });
   });

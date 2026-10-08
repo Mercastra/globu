@@ -47,4 +47,5 @@ A shard is one registered unit of knowledge: a git repo plus what Globu knows ab
 - If the command says the repo is already registered, use `globu show <id>` and `globu set` instead.
 - A repo without an `origin` remote can be registered but will not sync to other machines. Tell the user.
 - Registering from a git worktree records the repo's main checkout. Sessions in any worktree of that repo are still pointed at their own worktree.
+- To bring in a whole team's shards at once, run `globu import <manifest-path-or-repo-url>` to see what it would add and then again with `--yes`; `globu sync` clones what it added. The team manifest is a plain Globu manifest, by convention at `.globu/manifest.yaml` in a shared repo.
 - Never register a repo the user did not ask for.

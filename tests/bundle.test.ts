@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import YAML from "yaml";
 import { baseIndex, initRepo, read, tempDir, write } from "../packages/testing/index.js";
 
 const root = path.join(import.meta.dirname, "..");
@@ -43,6 +44,56 @@ describe("bundled CLI", () => {
     expect(asked.status).toBe(0);
     expect(JSON.parse(asked.stdout).hookSpecificOutput.permissionDecision).toBe("ask");
     expect(runBundle(GLOBU, ["nope"]).status).toBe(1);
+  });
+
+  it("bootstraps a fresh home from a team manifest", () => {
+    const root = tempDir();
+    const product = initRepo(path.join(root, "remotes/product"), { "docs/index.md": baseIndex("product", "Truth") });
+    const notes = initRepo(path.join(root, "remotes/notes"), { "README.md": "notes\n" });
+    const shards = [
+      {
+        id: "product",
+        source: { type: "git", repo: `file://${product}` },
+        format: "okf",
+        roots: [{ path: "docs", name: "product", entry: "docs/index.md" }],
+        description: "Truth",
+        useWhen: "Product questions",
+        access: "read"
+      },
+      {
+        id: "notes",
+        source: { type: "git", repo: `file://${notes}` },
+        format: "generic",
+        roots: [{ path: ".", entry: "README.md" }],
+        description: "Notes",
+        useWhen: "Notes questions"
+      }
+    ];
+    const team = initRepo(path.join(root, "remotes/team"), {
+      ".globu/manifest.yaml": YAML.stringify({ shards, contexts: { team: ["product", "notes"] } })
+    });
+    const home = process.env.GLOBU_HOME as string;
+
+    expect(runBundle(GLOBU, ["import", `file://${team}`, "--context", "team", "--yes"]).status).toBe(0);
+    expect(runBundle(GLOBU, ["sync"]).stdout).toBe("cloned\tproduct\ncloned\tnotes\n");
+    const index = runBundle(GLOBU, ["index"]).stdout;
+    expect(index).toContain("# Globu knowledge shards (context: team)");
+    expect(index).toContain(`- **product** (okf, read-only)\n  - Location: ${path.join(home, "clones/product")}`);
+    expect(index).toContain("- **notes** (generic, read-only)");
+
+    expect(runBundle(GLOBU, ["claude", "sync"]).status).toBe(0);
+    const settings = JSON.parse(read(process.env.CLAUDE_CONFIG_DIR as string, "settings.json"));
+    expect(settings.permissions.additionalDirectories).toEqual([
+      path.join(home, "clones/product"),
+      path.join(home, "clones/notes")
+    ]);
+
+    const target = path.join(home, "clones/product/docs/new.md");
+    const blocked = runBundle(GLOBU, ["hook", "guard"], { cwd: root, tool_input: { file_path: target } });
+    expect(blocked.status).toBe(2);
+    expect(blocked.stderr).toContain('belongs to shard "product", which is read-only');
+    const bash = runBundle(GLOBU, ["hook", "guard"], { cwd: root, tool_input: { command: `echo x > ${target}` } });
+    expect(bash.status).toBe(2);
   });
 
   it("manages knowledge bases and validates edits", () => {

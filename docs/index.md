@@ -43,5 +43,6 @@ This is a plain [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/b
 * [Knowledge bases](./knowledge-base.md) - base discovery, ownership rule, the base commands, the edit hook and the skills
 * [globu CLI](./globu-cli.md) - command reference
 * [Claude Code hook contract](./claude-code-hooks.md) - the hook behaviours the session and guard hooks rely on, and which are untested
+* [Unattended runs](./unattended-runs.md) - bootstrapping a CI job or a fresh machine from a team manifest: import, token clones and loading the plugin
 * [Development](./development.md) - tooling, quality gates, tests, CI and releasing
 * [Update log](./log.md) - chronological history of changes to this base
