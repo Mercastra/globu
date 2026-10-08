@@ -79,14 +79,19 @@ const isKnowledgeBasePath = async ($: Dollar, path: string): Promise<boolean> =>
   return false;
 };
 
-const updateCommandFor = async ($: Dollar): Promise<string> => {
+const updateCommandFor = async ($: Dollar): Promise<string | undefined> => {
   try {
     const names = new Set((await $.command.list()).map((one) => one.name));
-    const found = UPDATE_COMMANDS.find((one) => names.has(one));
-    return found === undefined ? UPDATE_PROMPT : `/${found}`;
+    return UPDATE_COMMANDS.find((one) => names.has(one));
   } catch {
-    return UPDATE_PROMPT;
+    return undefined;
   }
+};
+
+const requestUpdate = async ($: Dollar) => {
+  const command = await updateCommandFor($);
+  if (command === undefined) await $.prompt.submit({ text: UPDATE_PROMPT });
+  else await $.command.run({ command });
 };
 
 export const register: Register = (on) => {
@@ -188,16 +193,7 @@ export const register: Register = (on) => {
           {summaryOf(value)}
         </Text>
         {level !== "none" && (
-          <Button
-            key="update"
-            label="Update knowledge"
-            hotkey="k"
-            variant="primary"
-            onPress={async () => {
-              const text = await updateCommandFor($);
-              await $.prompt.submit({ text });
-            }}
-          />
+          <Button key="update" label="Update knowledge" hotkey="k" variant="primary" onPress={() => requestUpdate($)} />
         )}
         {level !== "none" && <Button key="mark" label="Mark up to date" hotkey="m" onPress={() => markUpdated($)} />}
         {level !== "none" && (

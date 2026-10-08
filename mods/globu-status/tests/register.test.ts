@@ -15,8 +15,9 @@ const BAND = {
   }
 } as const;
 
-const world = (on: On, bases: string[] = [], stored: Record<string, unknown> = {}) => {
+const world = (on: On, bases: string[] = [], stored: Record<string, unknown> = {}, commands: string[] = []) => {
   const prompts: string[] = [];
+  const ran: string[] = [];
   const store: Record<string, unknown> = { ...stored };
   const clock = mock.clock(on, { now: 1_000_000 });
   on("store.get", (_$, e) => ({ value: store[e.key] }));
@@ -37,13 +38,19 @@ const world = (on: On, bases: string[] = [], stored: Record<string, unknown> = {
   on("fs.exists", (_$, e) => ({
     value: bases.some((base) => e.path === `${base}/index.md` || e.path === `${base}/log.md`)
   }));
-  on("command.list", () => ({ value: [] }));
+  on("command.list", () => ({
+    value: commands.map((name) => ({ name, description: "", source: "plugin" as const, plugin: "globu" }))
+  }));
+  on("command.run", (_$, e) => {
+    ran.push(e.command);
+    return { text: "" };
+  });
   on("turn.complete", (_$, e) => ({ text: e.answer }));
   on("prompt.submit", (_$, e) => {
     prompts.push(e.text);
     return { text: e.text };
   });
-  return { prompts, clock, store, status: () => statuses[statuses.length - 1] };
+  return { prompts, ran, clock, store, status: () => statuses[statuses.length - 1] };
 };
 
 const edit = ($: Engine, file_path: string) =>
@@ -129,11 +136,22 @@ test("invoking the update skill clears the need and shows updating until the tur
   expect(w.status()).toBe("✓ up to date");
 });
 
+test("the update button runs the update command, or submits a prompt when there is none", async ($, on) => {
+  const w = world(on, [], {}, ["globu:register-knowledge-base", "globu:update-knowledge"]);
+  await edit($, "/repo/src/a.ts");
+  const ui = await $.ui.mount({ ...BAND, surface: "terminal" });
+  await ui.press({ key: "update" });
+  expect(w.ran).toEqual(["globu:update-knowledge"]);
+  expect(w.prompts).toEqual([]);
+  await ui.unmount();
+});
+
 test("the band buttons submit the update prompt and mark up to date", async ($, on) => {
   const w = world(on);
   await edit($, "/repo/src/a.ts");
   const ui = await $.ui.mount({ ...BAND, surface: "terminal" });
   await ui.press({ key: "update" });
+  expect(w.ran).toEqual([]);
   expect(w.prompts).toEqual(["Update the knowledge base with what this session learned."]);
   await ui.press({ key: "mark" });
   await ui.unmount();
