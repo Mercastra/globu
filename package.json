@@ -22,7 +22,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "verify": "npm run lint && npm run typecheck && npm run build && npm run test:coverage",
-    "prepare": "husky"
+    "prepare": "husky",
+    "verify:mod": "claude plugin validate mods/globu-status && claude plugin test mods/globu-status"
   },
   "dependencies": {
     "commander": "^15.0.0",

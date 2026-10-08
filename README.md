@@ -10,11 +10,14 @@ This repo ships one Claude Code plugin, **[globu](plugins/globu/README.md)**, wi
 
 Hooks index the registered shards at session start, guard edits to shards that are read-only or ask-first and validate a base right after an edit. Nothing needs a registered shard: inside one repo the bases work on their own.
 
+A second, optional plugin, **[globu-status](mods/globu-status/README.md)**, is a Claude Code mod that shows in every session how much has happened since the knowledge was last updated, with a button that runs the update.
+
 ## Install
 
 ```sh
 claude plugin marketplace add Mercastra/globu
 claude plugin install globu@globu
+claude plugin install globu-status@globu
 ```
 
 The plugin runs its CLI from an npm package that Claude Code installs with it, so `node` (22 or newer) and `npm` must be on the `PATH`.
@@ -31,7 +34,7 @@ globu base --help
 ```sh
 npm install
 npm run build
-claude --plugin-dir ./plugins/globu
+claude --plugin-dir ./plugins/globu --plugin-dir ./mods/globu-status
 ```
 
 The CLI can also be run directly:

@@ -1,6 +1,7 @@
 # Knowledge base update log
 
 ## 2026-10-08
+* Added the globu-status mod to the repo as mods/globu-status with a marketplace entry, npm run verify:mod in the pre-commit hook and CI, and [globu-status mod](./globu-status.md) for what it shows and how it scores. Updated [architecture](./architecture.md), [development](./development.md) and the README.
 * Split the docs for the public repo: moved design decisions and the globu-status mod doc to a separate private knowledge base, dropped the not-built-yet list, and added [overview](./overview.md) with the problems Globu solves and a worked example. Older log entries that linked to the moved docs now name them in plain text.
 * Added the globu-status mod: the session indicator for pending knowledge updates, the skill and command names it keys on and what writing it taught about the Claude Code mod API and its test kit. Noted in [development](./development.md) how to dry-run the pin script and that commander wraps long descriptions, and opened the question of moving the mod into this repo in decisions.
 * Folded the knowledge-base CLI into globu as the base group (setup, validate, list, owner, log) with the edit hook as globu hook validate-edit, so @mercastra/globu is the only npm package and globu the only command. cli-common moved into globu-cli. Updated [knowledge bases](./knowledge-base.md), [globu CLI](./globu-cli.md), [architecture](./architecture.md), [development](./development.md) and the READMEs, and recorded the decision in decisions.

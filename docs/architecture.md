@@ -173,6 +173,7 @@ packages/globu-core          manifest, state, resolver, session view, probe, dri
 packages/globu-cli           the globu program, published as @mercastra/globu: the base group, the registry commands, the hooks and the commander runner
 packages/testing             test helpers
 plugins/globu                the plugin: skills, session, guard and edit hooks, pinned dependency on the CLI
+mods/globu-status            the status mod: a plugin of function hooks with its own tests
 scripts/                     build and pin
 tests/                       checks that run the built bundles and the plugin hooks
 ```
@@ -185,7 +186,7 @@ The CLI is bundled into a single file with no runtime dependencies and published
 
 The plugin is a source-only directory: skills, hooks, `plugin.json` and a `package.json` with a `package-lock.json` that pin the CLI to one exact version. Claude Code copies the plugin into its cache on install and then installs that one dependency, so hooks and skills run the CLI from `node_modules/@mercastra/globu/dist` inside the plugin root.
 
-The marketplace is this repo. Its entry points at the plugin directory on the `stable` branch, which only the release moves. `main` can therefore hold skills that are ahead of the published CLI without anyone installing that mix.
+The marketplace is this repo. Its entries point at the plugin and mod directories on the `stable` branch, which only the release moves. `main` can therefore hold skills that are ahead of the published CLI without anyone installing that mix.
 
 Locally, `npm run build` links the package into the plugin's `node_modules`, so `claude --plugin-dir` runs the working tree.
 

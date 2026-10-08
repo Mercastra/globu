@@ -1,0 +1,9 @@
+{
+  "name": "globu-status",
+  "version": "0.1.0",
+  "description": "Shows how much this session has done since its knowledge was last updated, and turns gray once it is.",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Kamil Ziajka"
+  }
+}
