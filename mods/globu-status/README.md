@@ -10,7 +10,7 @@ A minimal status line under the prompt, labelled `globu-status` by the engine (t
 - `◔ low`, `◑ medium`, `● strong`: something is pending.
 - `updating...` while the update skill runs, then `✓ up to date`.
 
-While something is pending a band above the prompt adds the detail, `◔ Low need to update knowledge (2 edits, 1 turn)` in green, yellow or red, with `Update knowledge` (hotkey k), which submits `/globu:update-knowledge` (falling back to `/knowledge-base:update-knowledge`, then `/globu:save-knowledge`, then a plain prompt), `Mark up to date` (hotkey m) and `Hide for a week` (hotkey h). The band disappears once the knowledge is up to date. A hide is kept across sessions in the plugin store; `/globu-status show` lifts it early and `/globu-status` says until when it holds.
+While something is pending a band above the prompt adds the detail, `◔ Low need to update knowledge (2 edits, 1 turn)` in green, yellow or red, with `Update knowledge` (hotkey k), which submits `/globu:update-knowledge` (falling back to `/knowledge-base:update-knowledge`, then `/globu:save-knowledge`, then a plain prompt), `Mark up to date` (hotkey m) and `Hide for a week` (hotkey h). Pressing `Update knowledge` turns the band into `Updating knowledge...` at once, without buttons. Nothing counts while the update runs, and when its turn ends the band disappears. An interrupted update brings the need back. The band also disappears once the knowledge is up to date by any other route. A hide is kept across sessions in the plugin store; `/globu-status show` lifts it early and `/globu-status` says until when it holds.
 
 ## How it scores
 
@@ -23,6 +23,7 @@ Levels: 0 is none, under 4 is low, under 9 is medium, otherwise strong. Any comm
 - Invoking an update skill: `globu:update-knowledge`, `knowledge-base:update-knowledge` or the older `globu:save-knowledge`.
 - Editing a Markdown file inside an OKF base (a folder, or an ancestor, holding both `index.md` and `log.md`).
 - Running `globu base log` or `globu base validate` (or the older `knowledge-base log` and `validate`).
+- The end of the turn started by `Update knowledge`.
 - Pressing `Mark up to date` or typing `/globu-status reset`.
 
 `/globu-status` prints the current state.

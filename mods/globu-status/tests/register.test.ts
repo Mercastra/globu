@@ -15,8 +15,15 @@ const BAND = {
   }
 } as const;
 
-const world = (on: On, bases: string[] = [], stored: Record<string, unknown> = {}, commands: string[] = []) => {
+const world = (
+  on: On,
+  bases: string[] = [],
+  stored: Record<string, unknown> = {},
+  commands: string[] = [],
+  isRunRefused = false
+) => {
   const prompts: string[] = [];
+  const toasts: string[] = [];
   const ran: string[] = [];
   const store: Record<string, unknown> = { ...stored };
   const clock = mock.clock(on, { now: 1_000_000 });
@@ -42,15 +49,21 @@ const world = (on: On, bases: string[] = [], stored: Record<string, unknown> = {
     value: commands.map((name) => ({ name, description: "", source: "plugin" as const, plugin: "globu" }))
   }));
   on("command.run", (_$, e) => {
+    if (isRunRefused) throw new Error("busy");
     ran.push(e.command);
     return { text: "" };
   });
+  on("turn.start", (_$, e) => ({ turnId: e.turnId }));
   on("turn.complete", (_$, e) => ({ text: e.answer }));
+  on("ui.toast", (_$, e) => {
+    toasts.push(e.text);
+    return { value: undefined };
+  });
   on("prompt.submit", (_$, e) => {
     prompts.push(e.text);
     return { text: e.text };
   });
-  return { prompts, ran, clock, store, status: () => statuses[statuses.length - 1] };
+  return { prompts, ran, toasts, clock, store, status: () => statuses[statuses.length - 1] };
 };
 
 const edit = ($: Engine, file_path: string) =>
@@ -58,8 +71,8 @@ const edit = ($: Engine, file_path: string) =>
 
 const bash = ($: Engine, command: string) => $.tool.call({ tool: "Bash", command });
 
-const turn = ($: Engine) =>
-  $.turn.complete({ reason: "answer", answer: "", durationMs: 1, isAborted: false, turnId: "t" });
+const turn = ($: Engine, turnId = "t", reason: "answer" | "aborted" = "answer", agentId?: string) =>
+  $.turn.complete({ reason, answer: "", durationMs: 1, isAborted: reason === "aborted", turnId, agentId });
 
 const band = async ($: Engine, surface: "terminal" | "desktop" = "terminal") => {
   const ui = await $.ui.mount({ ...BAND, surface });
@@ -136,7 +149,7 @@ test("invoking the update skill clears the need and shows updating until the tur
   expect(w.status()).toBe("✓ up to date");
 });
 
-test("the update button runs the update command, or submits a prompt when there is none", async ($, on) => {
+test("the update button runs the update command", async ($, on) => {
   const w = world(on, [], {}, ["globu:register-knowledge-base", "globu:update-knowledge"]);
   await edit($, "/repo/src/a.ts");
   const ui = await $.ui.mount({ ...BAND, surface: "terminal" });
@@ -146,16 +159,81 @@ test("the update button runs the update command, or submits a prompt when there 
   await ui.unmount();
 });
 
-test("the band buttons submit the update prompt and mark up to date", async ($, on) => {
+test("the update button submits a prompt when no update command exists", async ($, on) => {
   const w = world(on);
   await edit($, "/repo/src/a.ts");
   const ui = await $.ui.mount({ ...BAND, surface: "terminal" });
   await ui.press({ key: "update" });
+  await ui.unmount();
   expect(w.ran).toEqual([]);
   expect(w.prompts).toEqual(["Update the knowledge base with what this session learned."]);
+});
+
+test("mark up to date clears the band", async ($, on) => {
+  const w = world(on);
+  on("ui.render", () => ({ type: "Text", props: {}, children: ["engine"] }));
+  await edit($, "/repo/src/a.ts");
+  const ui = await $.ui.mount({ ...BAND, surface: "terminal" });
   await ui.press({ key: "mark" });
   await ui.unmount();
+  expect((await band($)).text).toBe("engine");
   expect(w.status()).toBe("✓ up to date");
+});
+
+test("pressing update shows updating at once and the band clears when the update turn ends", async ($, on) => {
+  const w = world(on, ["/repo/docs"], {}, ["globu:update-knowledge"]);
+  on("ui.render", () => ({ type: "Text", props: {}, children: ["engine"] }));
+  await edit($, "/repo/src/a.ts");
+  const ui = await $.ui.mount({ ...BAND, surface: "terminal" });
+  await ui.press({ key: "update" });
+  await ui.unmount();
+  expect(await band($)).toEqual({ text: "Updating knowledge...", color: undefined, dim: true, hasUpdate: false });
+  expect(w.status()).toBe("updating...");
+
+  await $.turn.start({ text: "/globu:update-knowledge", turnId: "u" });
+  await edit($, "/repo/docs/architecture.md");
+  await edit($, "/repo/CLAUDE.md");
+  await bash($, 'git commit -m "docs"');
+  await turn($, "sub", "answer", "agent-1");
+  expect((await band($)).text).toBe("Updating knowledge...");
+  await turn($, "u");
+  expect((await band($)).text).toBe("engine");
+  expect(w.status()).toBe("✓ up to date");
+});
+
+test("an update pressed during a turn waits for its own turn", async ($, on) => {
+  const w = world(on, [], {}, ["globu:update-knowledge"]);
+  await $.turn.start({ text: "work", turnId: "w" });
+  await edit($, "/repo/src/a.ts");
+  const ui = await $.ui.mount({ ...BAND, surface: "terminal" });
+  await ui.press({ key: "update" });
+  await ui.unmount();
+  await turn($, "w");
+  expect(w.status()).toBe("updating...");
+  await $.turn.start({ text: "/globu:update-knowledge", turnId: "u" });
+  await turn($, "u");
+  expect(w.status()).toBe("✓ up to date");
+});
+
+test("an interrupted update brings the need back", async ($, on) => {
+  const w = world(on, [], {}, ["globu:update-knowledge"]);
+  await edit($, "/repo/src/a.ts");
+  const ui = await $.ui.mount({ ...BAND, surface: "terminal" });
+  await ui.press({ key: "update" });
+  await ui.unmount();
+  await turn($, "u", "aborted");
+  expect((await band($)).text).toBe("◔ Low need to update knowledge (1 edit)");
+  expect(w.status()).toBe("◔ low");
+});
+
+test("an update that cannot start says so and keeps the need", async ($, on) => {
+  const w = world(on, [], {}, ["globu:update-knowledge"], true);
+  await edit($, "/repo/src/a.ts");
+  const ui = await $.ui.mount({ ...BAND, surface: "terminal" });
+  await ui.press({ key: "update" });
+  await ui.unmount();
+  expect(w.toasts).toEqual(["Could not start the knowledge update."]);
+  expect((await band($)).text).toBe("◔ Low need to update knowledge (1 edit)");
 });
 
 test("the band yields to a survey", async ($, on) => {

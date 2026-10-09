@@ -16,7 +16,7 @@ A status line under the prompt, labelled `globu-status`:
 - `◔ low`, `◑ medium`, `● strong` while something is pending.
 - `updating...` while the update skill runs, then `✓ up to date`.
 
-While something is pending, a band above the prompt adds the counts, `◔ Low need to update knowledge (2 edits, 1 turn)`, in green, yellow or red, with three buttons: `Update knowledge` (hotkey k) submits `/globu:update-knowledge`, `Mark up to date` (m) clears the need, and `Hide for a week` (h) hides the band for seven days across sessions. The band disappears once the knowledge is up to date.
+While something is pending, a band above the prompt adds the counts, `◔ Low need to update knowledge (2 edits, 1 turn)`, in green, yellow or red, with three buttons: `Update knowledge` (hotkey k) submits `/globu:update-knowledge`, `Mark up to date` (m) clears the need, and `Hide for a week` (h) hides the band for seven days across sessions. Pressing `Update knowledge` turns the band into `Updating knowledge...` at once, without buttons. The command only runs once the session is idle and expands the skill without a `Skill` tool call, so the mod cannot wait for one. Nothing counts while the update runs, so edits it makes outside a base and the commit that ships it do not raise the need again. When the update's turn ends the knowledge is up to date and the band disappears. An interrupted or failed turn brings the need back. The band also disappears once the knowledge is up to date by any other route.
 
 `/globu-status` prints the state. `/globu-status reset` marks it up to date and `/globu-status show` lifts a hide early.
 
@@ -29,6 +29,7 @@ Each distinct file changed with Edit, Write or NotebookEdit and each shell comma
 - Invoking `globu:update-knowledge`, or the older `knowledge-base:update-knowledge` and `globu:save-knowledge`.
 - Editing a Markdown file inside an OKF base, found by walking up to a folder holding both `index.md` and `log.md`.
 - Running `globu base log` or `globu base validate`.
+- The end of the turn started by `Update knowledge`.
 - Pressing `Mark up to date` or typing `/globu-status reset`.
 
 These names are a contract between the mod and the rest of Globu: renaming a skill or a `base` command means changing the mod too.

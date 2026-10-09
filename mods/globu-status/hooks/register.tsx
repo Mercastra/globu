@@ -37,6 +37,8 @@ const BASE_DEPTH = 8;
 type Dollar = EngineInterface;
 
 let turnHadActivity = false;
+let runningTurn: string | null = null;
+let turnBeforeUpdate: string | null = null;
 
 const change = async ($: Dollar, fn: (value: KnowledgeNeed) => KnowledgeNeed) => {
   const value = await update($, need, fn);
@@ -44,9 +46,14 @@ const change = async ($: Dollar, fn: (value: KnowledgeNeed) => KnowledgeNeed) =>
   return value;
 };
 
-const markUpdated = async ($: Dollar, isUpdating = false) => {
+const markUpdated = async ($: Dollar) => {
   turnHadActivity = false;
-  return change($, () => ({ ...saved(Date.now()), isUpdating }));
+  return change($, () => saved(Date.now()));
+};
+
+const startUpdate = async ($: Dollar) => {
+  turnHadActivity = false;
+  return change($, (value) => ({ ...value, isUpdating: true }));
 };
 
 const hide = async ($: Dollar, until: number | null) => {
@@ -89,9 +96,16 @@ const updateCommandFor = async ($: Dollar): Promise<string | undefined> => {
 };
 
 const requestUpdate = async ($: Dollar) => {
-  const command = await updateCommandFor($);
-  if (command === undefined) await $.prompt.submit({ text: UPDATE_PROMPT });
-  else await $.command.run({ command });
+  turnBeforeUpdate = runningTurn;
+  await startUpdate($);
+  try {
+    const command = await updateCommandFor($);
+    if (command === undefined) await $.prompt.submit({ text: UPDATE_PROMPT });
+    else await $.command.run({ command });
+  } catch {
+    await change($, (value) => ({ ...value, isUpdating: false }));
+    $.ui.toast("Could not start the knowledge update.");
+  }
 };
 
 export const register: Register = (on) => {
@@ -125,14 +139,21 @@ export const register: Register = (on) => {
     return { text: `knowledge: ${summaryOf(value)}${detail}${hidden}` };
   });
 
+  on("turn.start", async (_$, e, next) => {
+    runningTurn = e.turnId;
+    return next(e);
+  });
+
   on("tool.call", async ($, e, next) => {
     if (e.tool === "Skill" && isUpdateSkill(e.skill)) {
-      await markUpdated($, true);
+      turnBeforeUpdate = null;
+      await startUpdate($);
       return next(e);
     }
 
     const ran = await next(e);
     if (ran.deny !== undefined || ran.isError === true) return ran;
+    if ((await read($, need)).isUpdating) return ran;
 
     if (e.tool === "Edit" || e.tool === "Write" || e.tool === "NotebookEdit") {
       const path = e.tool === "NotebookEdit" ? e.notebook_path : e.file_path;
@@ -169,11 +190,17 @@ export const register: Register = (on) => {
   }).catch((_$, e, next) => next(e));
 
   on("turn.complete", async ($, e, next) => {
-    if (e.agentId === undefined && turnHadActivity) {
+    if (e.agentId !== undefined) return next(e);
+    runningTurn = null;
+    const isBeforeUpdate = e.turnId === turnBeforeUpdate;
+    turnBeforeUpdate = null;
+    const value = await read($, need);
+    if (value.isUpdating && !isBeforeUpdate) {
+      if (e.reason === "answer") await markUpdated($);
+      else await change($, (current) => ({ ...current, isUpdating: false }));
+    } else if (turnHadActivity) {
       turnHadActivity = false;
-      await change($, (value) => ({ ...value, isUpdating: false, turns: value.turns + 1 }));
-    } else {
-      await change($, (value) => (value.isUpdating ? { ...value, isUpdating: false } : value));
+      await change($, (current) => ({ ...current, turns: current.turns + 1 }));
     }
     return next(e);
   });
@@ -184,6 +211,14 @@ export const register: Register = (on) => {
     if (isHidden(await read($, hiddenUntil), await $.clock.now())) return next(e);
 
     const { Box, Button, Text } = $.ui.resolve(e);
+    if (value.isUpdating) {
+      return (
+        <Box gap={1}>
+          <Text dimColor>{summaryOf(value)}</Text>
+        </Box>
+      );
+    }
+
     const level = levelOf(value);
     const color = colorOf(level);
 
