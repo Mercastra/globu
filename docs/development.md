@@ -86,11 +86,12 @@ claude --plugin-dir ./plugins/globu --plugin-dir ./mods/globu-status
 
 The root `package.json` holds the version. The build copies it into `packages/globu-cli/package.json`, and `globu base setup` stamps it into every base it touches as `knowledge_base_version`.
 
-A release publishes the CLI and then pins the plugin to it:
+A release publishes the CLI, pins the plugin to it and then updates the public site. In Claude Code the project skill `/release <version>` (`.claude/skills/release/SKILL.md`) does all of it; the steps are:
 
 1. Bump the version with `npm version <version> --no-git-tag-version`, run `npm run build` and merge that to `main`. The command also updates the root `package-lock.json`, and the build updates the CLI's `package.json`, so the bump commit touches three files.
 2. Run the `Release` workflow (`.github/workflows/release.yml`) from the Actions tab, or with `gh workflow run release.yml --ref main` and then `gh run watch <run-id> --exit-status`. A run takes about six minutes, most of it waiting for the tarball.
 3. Pull `main` afterwards. The workflow adds the pin commit, so a local `main` is one commit behind.
+4. Update the site. globu.mercastra.com is `packages/globu-homepage` in `mercastra-app-frontend` and has no dependency on this repo: it shows the version in its `release.json` and renders the docs from a snapshot of `docs/` in its `content/`. The release skill writes both and opens that pull request; by hand, copy `docs/*.md` except `index.md` and `log.md` into `content/`, set `release.json` and open the pull request with `Globu <version>` in its title. The site shows the new version once that merges and deploys. `.claude/hooks/site-drift.mjs`, a Stop hook registered in `.claude/settings.json`, compares `package.json`, the npm version and the site's `version.json` at the end of every session here and reports an unreleased bump or a site that lags without an open pull request (`mercastra-product` decision 148).
 
 Every release needs a new version. npm never accepts a version twice, so a run on an already published version fails at the publish step. `npm view @mercastra/globu versions` shows what is taken.
 
