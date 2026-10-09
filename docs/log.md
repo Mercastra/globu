@@ -1,5 +1,8 @@
 # Knowledge base update log
 
+## 2026-10-10
+* The release process owns the public site's update (`mercastra-product` decision 148, step 4): the project skill `/release <version>` in `.claude/skills/release/` runs the release steps and then writes `release.json` and a snapshot of `docs/` into `packages/globu-homepage` in `mercastra-app-frontend` and opens that pull request; the Stop hook `.claude/hooks/site-drift.mjs` (registered in `.claude/settings.json`) reports an unreleased bump or a site that lags npm without an open pull request. `.gitignore` anchors `release` to the root so the skill directory is tracked. Documented in [development.md](./development.md), "Releasing".
+
 ## 2026-10-09
 * globu-status: Update knowledge turns the band into Updating knowledge... at once, nothing counts during the update and the band clears when its turn ends.
 * Switched the marketplace entries to the full HTTPS URL of the repo, because Claude Code clones the owner/repo shorthand of a git-subdir source over SSH only. Noted why in [architecture](./architecture.md).
