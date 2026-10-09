@@ -1,5 +1,8 @@
 # Knowledge base update log
 
+## 2026-10-09
+* Switched the marketplace entries to the full HTTPS URL of the repo, because Claude Code clones the owner/repo shorthand of a git-subdir source over SSH only. Noted why in [architecture](./architecture.md).
+
 ## 2026-10-08
 * Added `globu resolve`, which checks that references exist on the default branch of their repo, and the `check-issue` skill, which extracts references from a Jira issue and calls it. Documented both in [globu CLI](./globu-cli.md) and [architecture](./architecture.md) and listed the skill in the READMEs. Recorded the decisions in the decisions shard.
 * Added the globu-status mod to the repo as mods/globu-status with a marketplace entry, npm run verify:mod in the pre-commit hook and CI, and [globu-status mod](./globu-status.md) for what it shows and how it scores. Updated [architecture](./architecture.md), [development](./development.md) and the README.

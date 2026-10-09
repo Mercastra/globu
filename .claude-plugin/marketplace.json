@@ -9,7 +9,7 @@
       "name": "globu",
       "source": {
         "source": "git-subdir",
-        "url": "Mercastra/globu",
+        "url": "https://github.com/Mercastra/globu.git",
         "path": "plugins/globu",
         "ref": "stable"
       },
@@ -19,7 +19,7 @@
       "name": "globu-status",
       "source": {
         "source": "git-subdir",
-        "url": "Mercastra/globu",
+        "url": "https://github.com/Mercastra/globu.git",
         "path": "mods/globu-status",
         "ref": "stable"
       },

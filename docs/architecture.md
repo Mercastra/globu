@@ -206,6 +206,8 @@ The plugin is a source-only directory: skills, hooks, `plugin.json` and a `packa
 
 The marketplace is this repo. Its entries point at the plugin and mod directories on the `stable` branch, which only the release moves. `main` can therefore hold skills that are ahead of the published CLI without anyone installing that mix.
 
+The entries name the repo by its full HTTPS URL. Claude Code expands the `owner/repo` shorthand of a `git-subdir` source to an SSH URL without falling back to HTTPS, so on a machine with no GitHub SSH setup the install failed even though adding the marketplace succeeded.
+
 Locally, `npm run build` links the package into the plugin's `node_modules`, so `claude --plugin-dir` runs the working tree.
 
 See [development](./development.md) for tooling and quality gates.
