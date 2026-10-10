@@ -110,8 +110,14 @@ function importText(result: ImportResult): string {
   return lines.join("\n");
 }
 
-function refLine(result: RefResult): string {
-  return result.ok ? `ok\t${result.ref}\t${result.location}` : `fail\t${result.ref}\t${result.reason}`;
+const CANDIDATE_LABEL = { rename: "renamed", name: "similar" };
+
+function refLines(result: RefResult): string[] {
+  if (result.ok) return [`ok\t${result.ref}\t${result.location}`];
+  return [
+    `fail\t${result.ref}\t${result.reason}`,
+    ...result.candidates.map((candidate) => `${CANDIDATE_LABEL[candidate.match]}\t${result.ref}\t${candidate.ref}`)
+  ];
 }
 
 const UNREGISTER_SUFFIX = { none: "", kept: ", clone left in place", removed: ", clone removed" };
@@ -276,7 +282,7 @@ export function globuMain(argv: string[], io: Io): number {
           const report = resolveRefs(refs, resolveAll().shards, active, io.cwd, activeContext);
           const touched = active.filter((shard) => report.shards.includes(shard.id));
           const index = renderIndex(touched, activeContext, io.cwd);
-          const lines = report.refs.map(refLine);
+          const lines = report.refs.flatMap(refLines);
           if (index) lines.push("", index);
           print(io, options.json, { ...report, context: activeContext, index }, lines.join("\n"));
           if (!report.ok) exit(1);

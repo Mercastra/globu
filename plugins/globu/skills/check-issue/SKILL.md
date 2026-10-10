@@ -32,11 +32,11 @@ The skill only reads. It never comments on the issue, changes its status or edit
    ```bash
    node <plugin-root>/node_modules/@mercastra/globu/dist/globu.mjs resolve <ref>... --json
    ```
-   Each result has `ok`, `location`, `revision` and, when it failed, `reason` and the `worktrees` where the path exists anyway. The exit code is 1 when any ref failed.
+   Each result has `ok`, `location`, `revision` and, when it failed, `reason`, the `worktrees` where the path exists anyway and `candidates` for the file that was meant. A candidate with `match: "rename"` is where git history moved the file. One with `match: "name"` only shares the file name, so treat it as a guess. The exit code is 1 when any ref failed.
 
 5. **Report** one row per reference: the text as the issue wrote it, the ref you passed and the result. Then give a verdict: the issue is ready only when every ref resolved and nothing was left unresolved in step 3. For each failure suggest the fix, and leave it to the user:
    - Only in a worktree or not pushed: the doc must be committed and pushed to the default branch, or the issue must point at the doc that is there.
-   - Not on the default branch anywhere: the path is wrong or the doc was renamed. Search the shard for the intended file.
+   - Not on the default branch anywhere: the path is wrong or the doc was renamed. Suggest the `rename` candidate when there is one. Otherwise list the `name` candidates, or search the shard for the intended file when there are none.
    - No clone on this machine: `globu sync`.
    - Not in the active context: the shard is registered but excluded by `globu use`. The delivering agent may not see it either.
 

@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
 import { gitAuthArgs } from "./auth.js";
 
 export type Checkout = { root: string; commonDir: string };
@@ -61,6 +62,47 @@ export function hasPath(dir: string, revision: string, relPath: string): boolean
     return true;
   } catch {
     return false;
+  }
+}
+
+const MAX_RENAMES = 5;
+
+function renameOf(dir: string, revision: string, relPath: string): string | null {
+  const deletion = git(["log", revision, "--full-history", "--diff-filter=D", "--format=%H", "-1", "--", relPath], dir);
+  if (deletion === "") return null;
+  const fields = git(
+    ["diff-tree", "-r", "-M", "-z", "--name-status", "--diff-filter=R", "--no-commit-id", deletion],
+    dir
+  ).split("\0");
+  for (let index = 0; index + 2 < fields.length; index += 3) {
+    if (fields[index + 1] === relPath) return fields[index + 2];
+  }
+  return null;
+}
+
+export function renamedTo(dir: string, revision: string, relPath: string): string | null {
+  try {
+    let current = relPath;
+    for (let hop = 0; hop < MAX_RENAMES; hop++) {
+      const next = renameOf(dir, revision, current);
+      if (next === null) return null;
+      if (hasPath(dir, revision, next)) return next;
+      current = next;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function pathsNamed(dir: string, revision: string, name: string): string[] {
+  const wanted = name.toLowerCase();
+  try {
+    return git(["ls-tree", "-r", "-t", "-z", "--name-only", revision], dir)
+      .split("\0")
+      .filter((entry) => path.posix.basename(entry).toLowerCase() === wanted);
+  } catch {
+    return [];
   }
 }
 

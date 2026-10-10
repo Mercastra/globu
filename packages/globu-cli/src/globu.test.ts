@@ -275,11 +275,16 @@ describe("globu resolve", () => {
     const missing = run(["resolve", "notes/docs/a.md", "notes/docs/b.md"]);
     expect(missing.code).toBe(1);
     expect(missing.out).toContain('\nfail\tnotes/docs/b.md\tnot on HEAD of shard "notes"\n');
+
+    const moved = run(["resolve", "notes/a.md"]);
+    expect(moved.out).toMatch(
+      /^fail\tnotes\/a\.md\tnot on HEAD of shard "notes"\nsimilar\tnotes\/a\.md\tnotes\/docs\/a\.md\n\n/
+    );
     expect(json(["resolve", "notes/docs/b.md"])).toMatchObject({
       ok: false,
       context: null,
       shards: ["notes"],
-      refs: [{ ref: "notes/docs/b.md", ok: false, revision: "HEAD" }],
+      refs: [{ ref: "notes/docs/b.md", ok: false, revision: "HEAD", candidates: [] }],
       index: expect.stringContaining("- **notes** (okf, writable)")
     });
   });
