@@ -1,6 +1,7 @@
 # Knowledge base update log
 
 ## 2026-10-10
+* Renamed the check-issue skill to issue-check and added issue-fix, which runs the same check and rewrites the broken refs in the Jira issue after the user confirms. Updated [architecture](./architecture.md), [globu CLI](./globu-cli.md) and the READMEs.
 * globu resolve suggests candidates for refs that are not on the default branch: where git history renamed the file and files with the same name. check-issue uses them in its fixes.
 * The release process owns the public site's update (`mercastra-product` decision 148, step 4): the project skill `/release <version>` in `.claude/skills/release/` runs the release steps and then writes `release.json` and a snapshot of `docs/` into `packages/globu-homepage` in `mercastra-app-frontend` and opens that pull request; the Stop hook `.claude/hooks/site-drift.mjs` (registered in `.claude/settings.json`) reports an unreleased bump or a site that lags npm without an open pull request. `.gitignore` anchors `release` to the root so the skill directory is tracked. Documented in [development.md](./development.md), "Releasing".
 

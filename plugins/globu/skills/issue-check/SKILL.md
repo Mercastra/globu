@@ -1,5 +1,5 @@
 ---
-name: check-issue
+name: issue-check
 description: Check that every doc and code reference in a Jira issue resolves to a real file that a coding agent will be able to open. Use when the user asks whether an issue is agent-ready, asks to check an issue's references or links, or is about to move an issue to a ready-for-delivery state.
 ---
 
@@ -7,7 +7,7 @@ description: Check that every doc and code reference in a Jira issue resolves to
 
 An issue meant for a coding agent should point at the docs that govern the work instead of pasting them. A pointer the agent cannot open is the most common way such a task fails. This skill reads the issue, turns each reference into a ref and lets `globu resolve` check that it exists on the default branch of its repo, which is what the delivering agent will check out. The CLI is installed with this plugin at `node_modules/@mercastra/globu/dist/globu.mjs` in the plugin root (two directories above this file).
 
-The skill only reads. It never comments on the issue, changes its status or edits a shard.
+The skill only reads. It never comments on the issue, changes its status or edits a shard. To apply the fixes it suggests, use the `issue-fix` skill, which runs the same steps and then edits the issue once the user confirms.
 
 ## Workflow
 

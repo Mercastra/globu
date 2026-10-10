@@ -131,7 +131,7 @@ All of it comes from the `globu` plugin, which should be enabled at user scope.
 - **PreToolUse guard** runs `globu hook guard` before `Edit`, `Write`, `NotebookEdit` and `Bash`. It finds the shard by the repo the target belongs to, so a file in any worktree maps to its shard. For a `read` shard it blocks the edit with exit code 2. For an `ask` shard it returns the PreToolUse permission decision `ask`, which makes Claude Code prompt the user, unless the session's home is that shard's repo. Home is the repo of `CLAUDE_PROJECT_DIR`, the directory the session started in. The hook's `cwd` is only the fallback because it follows `cd`, and a session must not become exempt by changing into a sibling repo. Shell commands are read as described below.
 - **`globu claude sync`** writes the active shards' paths into `permissions.additionalDirectories` in the user's Claude settings so reads need no prompt. It records which entries it added and only ever changes those. It is an explicit command and nothing calls it implicitly.
 - **PostToolUse edit hook** runs `globu hook validate-edit` after `Edit` and `Write` and validates the base an edited Markdown file belongs to. See [knowledge bases](./knowledge-base.md).
-- **Skills**: `setup-knowledge-base`, `register-knowledge-base`, `update-knowledge` and `check-issue`.
+- **Skills**: `setup-knowledge-base`, `register-knowledge-base`, `update-knowledge`, `issue-check` and `issue-fix`.
 
 The repo a session runs in needs nothing. The hooks read `~/.globu` only.
 
@@ -141,7 +141,9 @@ An issue written for a coding agent points at the docs that govern the work. `gl
 
 The check uses the default branch and not the working tree because the agent that delivers the issue checks the repo out fresh, in CI or in a new worktree. A decision record written in one session's worktree and never pushed is on disk here and missing there. When a path fails, the worktrees of the repo are searched so the report can say where the file is stuck. Locations of refs that resolve come from the session view, like the index.
 
-Reading the issue and turning loose mentions such as "decision 12" into refs is meaning, not structure, so it lives in the `check-issue` skill. The CLI knows nothing about Jira.
+Reading the issue and turning loose mentions such as "decision 12" into refs is meaning, not structure, so it lives in the `issue-check` skill. The CLI knows nothing about Jira.
+
+A failing ref also carries candidates for the file that was meant. A rename comes from git history: the last commit on the default branch that deleted the path, searched with `--full-history` so a rename made on a merged branch is found, and the rename in that commit, followed for up to five hops. Files with the same name come from the tree of the default branch. Choosing between candidates and writing the fix back to Jira is the `issue-fix` skill's job, so the CLI still only reads.
 
 ## Unattended runs
 
