@@ -28,15 +28,17 @@ The skill only reads. It never comments on the issue, changes its status or edit
 
    Leave out paths the issue says the change will create, and names that are not files: functions, flags, environment variables and endpoints. The ref for a shard starts with its `id` from `list`, which is often but not always the repo name.
 
+   Mark each ref as a **pointer** or a **citation**. A pointer is a doc or file the work depends on: a governing decision, a spec, the code to change. A citation is a path the issue quotes as an example, a past incident or history, such as "MR-173 cites `147-…md`, which existed only in a worktree". Resolve both, but only pointers count toward the verdict. When unsure, treat it as a pointer and say so.
+
 4. **Resolve them**, from the target repo's checkout so that bare paths resolve there:
    ```bash
    node <plugin-root>/node_modules/@mercastra/globu/dist/globu.mjs resolve <ref>... --json
    ```
    Each result has `ok`, `location`, `revision` and, when it failed, `reason`, the `worktrees` where the path exists anyway and `candidates` for the file that was meant. A candidate with `match: "rename"` is where git history moved the file. One with `match: "name"` only shares the file name, so treat it as a guess. The exit code is 1 when any ref failed.
 
-5. **Report** one row per reference: the text as the issue wrote it, the ref you passed and the result. Then give a verdict: the issue is ready only when every ref resolved and nothing was left unresolved in step 3. For each failure suggest the fix, and leave it to the user:
+5. **Report** one row per reference: the text as the issue wrote it, the ref you passed, whether it is a pointer or a citation and the result. Then give a verdict: the issue is ready only when every pointer resolved and nothing was left unresolved in step 3. A failing citation is reported for information only. For each failure suggest the fix, and leave it to the user:
    - Only in a worktree or not pushed: the doc must be committed and pushed to the default branch, or the issue must point at the doc that is there.
-   - Not on the default branch anywhere: the path is wrong or the doc was renamed. Suggest the `rename` candidate when there is one. Otherwise list the `name` candidates, or search the shard for the intended file when there are none.
+   - Not on the default branch anywhere: the path is wrong or the doc was renamed. Suggest the `rename` candidate when there is one. Otherwise list the `name` candidates. When there are none, search every registered shard for the intended file, since docs also move between shards: `list --all --json` gives each `workPath`.
    - No clone on this machine: `globu sync`.
    - Not in the active context: the shard is registered but excluded by `globu use`. The delivering agent may not see it either.
 
